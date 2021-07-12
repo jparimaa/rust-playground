@@ -1,0 +1,9 @@
+[package]
+name = "vulkano-test"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+vulkano = "0.20"
+vulkano-shaders = "0.21"
+image = "0.23"
