@@ -1,7 +1,10 @@
-use std::any::TypeId;
-use std::boxed::Box;
-use std::collections::HashMap;
 use std::any::Any;
+use std::any::TypeId;
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::option::Option;
+use std::rc::Rc;
 
 pub trait Component {
     fn update(&self);
@@ -12,7 +15,7 @@ pub struct Entity {
     id: u64,
     name: String,
     valid: bool,
-    components: HashMap<TypeId, Vec<Box<dyn Component>>>,
+    components: HashMap<TypeId, Vec<Rc<RefCell<dyn Component>>>>,
 }
 
 impl Entity {
@@ -45,19 +48,21 @@ impl Entity {
         self.valid
     }
 
-    pub fn add_component<T: Component + 'static>(&mut self, new_component: T) -> &T {
-        let contains_key = self.components.contains_key(&TypeId::of::<T>());
-        if !contains_key {
-            self.components.entry(TypeId::of::<T>()).or_insert(vec![]);
+    pub fn add_component<T: Component + 'static>(&mut self, new_component: T) {
+        let type_id = TypeId::of::<T>();
+        let entry = self.components.entry(type_id).or_insert(vec![]);
+        entry.push(Rc::new(RefCell::new(new_component)));
+    }
+
+    pub fn get_component<T: Component + 'static>(&mut self) -> Option<Rc<RefCell<dyn Component>>> {
+        let type_id = TypeId::of::<T>();
+        let entry = self.components.entry(type_id);
+        match entry {
+            Entry::Occupied(e) => match e.get().first() {
+                Some(c) => Option::Some(c.clone()),
+                None => Option::None,
+            },
+            Entry::Vacant(_) => Option::None,
         }
-        let elem = self.components.get_mut(&TypeId::of::<T>()).unwrap();
-        elem.push(Box::new(new_component));
-        elem.last().unwrap().as_any().downcast_ref::<T>().unwrap()
     }
-    /*
-    pub fn get_components<T>(&self) -> &Vec<dyn Component>
-    {
-        components[TypeId::of::<T>()].as_any().downcast_ref<T>()
-    }
-    */
 }
