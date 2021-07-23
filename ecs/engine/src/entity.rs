@@ -28,6 +28,14 @@ impl Entity {
         }
     }
 
+    pub(crate) fn update(&self) {
+        for (_, vec) in self.components.iter() {
+            for comp in vec.iter() {
+                comp.borrow().update()
+            }
+        }
+    }
+
     pub fn get_id(&self) -> u64 {
         self.id
     }
@@ -65,4 +73,7 @@ impl Entity {
             Entry::Vacant(_) => Option::None,
         }
     }
+
+    // Todo: get_components
+    // Todo: remove_component
 }

@@ -16,6 +16,12 @@ impl Scene {
         }
     }
 
+    pub fn update(&self) {
+        for entity in self.entities.iter() {
+            entity.borrow().update();
+        }
+    }
+
     pub fn create_entity(&mut self) -> Rc<RefCell<Entity>> {
         self.last_id = self.last_id + 1;
         let name: String = String::from("Entity ") + &(self.last_id.to_string());
@@ -53,5 +59,69 @@ impl Scene {
             Some(p) => Option::Some(p.clone()),
             None => Option::None,
         }
+    }
+
+    pub fn get_entity_by_name(&self, name: String) -> Option<Rc<RefCell<Entity>>> {
+        let found = self.entities.iter().find(|x| x.borrow().get_name() == name);
+        match found {
+            Some(p) => Option::Some(p.clone()),
+            None => Option::None,
+        }
+    }
+
+    pub fn get_entities(&self) -> &Vec<Rc<RefCell<Entity>>> {
+        &self.entities
+    }
+
+    pub fn get_entity_count(&self) -> usize {
+        self.entities.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_entity() {
+        let mut scene = Scene::new();
+        let entity_count = 5;
+        for _ in 0..entity_count {
+            scene.create_entity();
+        }
+        assert_eq!(entity_count, scene.get_entity_count());
+        assert_eq!(entity_count, scene.get_entities().len());
+    }
+
+    #[test]
+    fn create_entity_with_name() {
+        let mut scene = Scene::new();
+        let dog_name = String::from("dog");
+        let cat_name = String::from("cat");
+        scene.create_entity_with_name(dog_name.clone());
+        scene.create_entity_with_name(cat_name.clone());
+        scene.get_entity_by_name(dog_name).unwrap();
+        scene.get_entity_by_name(cat_name).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_nonexisting_entity_by_name() {
+        let scene = Scene::new();
+        scene.get_entity_by_name(String::from("mouse")).unwrap();
+    }
+
+    #[test]
+    fn destroy_entity_with_name() {
+        let mut scene = Scene::new();
+        assert_eq!(0, scene.get_entity_count());
+        let dog_entity = scene.create_entity_with_name(String::from("dog"));
+        assert_eq!(1, scene.get_entity_count());
+        let cat_entity = scene.create_entity_with_name(String::from("cat"));
+        assert_eq!(2, scene.get_entity_count());
+        scene.destroy_entity(&dog_entity);
+        assert_eq!(1, scene.get_entity_count());
+        scene.destroy_entity(&cat_entity);
+        assert_eq!(0, scene.get_entity_count());
     }
 }
