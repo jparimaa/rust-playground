@@ -61,6 +61,22 @@ impl Scene {
         }
     }
 
+    pub fn get_entity_ref_by_id(&self, id: u64) -> Option<std::cell::Ref<Entity>> {
+        let found = self.entities.iter().find(|x| x.borrow().get_id() == id);
+        match found {
+            Some(p) => Some((*p).borrow()),
+            None => Option::None,
+        }
+    }
+
+    pub fn get_entity_mut_by_id(&self, id: u64) -> Option<std::cell::RefMut<Entity>> {
+        let found = self.entities.iter().find(|x| x.borrow().get_id() == id);
+        match found {
+            Some(p) => Some((*p).borrow_mut()),
+            None => Option::None,
+        }
+    }
+
     pub fn get_entity_by_name(&self, name: String) -> Option<Rc<RefCell<Entity>>> {
         let found = self.entities.iter().find(|x| x.borrow().get_name() == name);
         match found {

@@ -28,4 +28,15 @@ fn main() {
     print_comp_ref.test_print();
 
     comp.borrow().update();
+
+    {
+        
+        let e1_ref = scene.get_entity_ref_by_id(1).unwrap();
+        print!("{}",e1_ref.get_name());
+        let e1_ref2 = scene.get_entity_ref_by_id(1).unwrap();
+        print!("{}",e1_ref2.get_name());
+    }
+    
+    let e1_mut = scene.get_entity_mut_by_id(1).unwrap();
+    print!("{}",e1_mut.get_name());
 }
