@@ -74,6 +74,10 @@ impl Entity {
         }
     }
 
-    // Todo: get_components
+    pub fn get_components<T: Component + 'static>(
+        &mut self,
+    ) -> Option<&Vec<Rc<RefCell<dyn Component>>>> {
+        self.components.get(&TypeId::of::<T>())
+    }
     // Todo: remove_component
 }
