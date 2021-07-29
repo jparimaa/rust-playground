@@ -12,10 +12,13 @@ impl CountComponent {
     pub fn get_count(&self) -> u64 {
         self.count.get()
     }
+
+    pub fn override_count(&mut self, count: u64) {
+        self.count.set(count);
+    }
 }
 
-impl crate::entity::Component for CountComponent
-{
+impl crate::entity::Component for CountComponent {
     fn update(&self) {
         self.count.set(self.count.get() + 1);
     }

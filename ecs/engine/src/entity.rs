@@ -74,6 +74,24 @@ impl Entity {
         }
     }
 
+    pub fn get_raw_component<T: Component + 'static>(&mut self) -> Option<*mut T> {
+        let type_id = TypeId::of::<T>();
+        let entry = self.components.entry(type_id);
+        match entry {
+            Entry::Occupied(e) => match e.get().first() {
+                Some(c) => Option::Some((*c).as_ptr() as *mut T),
+                None => Option::None,
+            },
+            Entry::Vacant(_) => Option::None,
+        }
+    }
+
+    // Todo: should be moved to component module
+    pub fn component_as<T: Component + 'static>(comp: &Rc<RefCell<dyn Component>>) -> &mut T {
+        let ptr = (*comp).as_ptr() as *mut T;
+        unsafe { &mut *ptr }
+    }
+
     pub fn get_components<T: Component + 'static>(
         &mut self,
     ) -> Option<&Vec<Rc<RefCell<dyn Component>>>> {
