@@ -6,3 +6,4 @@ edition = "2018"
 [dependencies]
 winit = "0.20.0"
 ash = "0.29.0"
+winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }

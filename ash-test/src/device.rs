@@ -1,20 +1,30 @@
-use ash::version::DeviceV1_0;
 use ash::version::InstanceV1_0;
 use ash::vk;
 
-pub fn create_logical_device(instance: &ash::Instance, physical_device: vk::PhysicalDevice) -> (ash::Device, vk::Queue) {
-    let queue_familty_index = crate::utility::get_graphics_queue_family_index(instance, physical_device).unwrap();
+pub fn create_logical_device(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    indices: &crate::utility::QueueFamilyIndices,
+) -> ash::Device {
+    use std::collections::HashSet;
+    let mut unique_queue_indices = HashSet::new();
+    unique_queue_indices.insert(indices.graphics_family_index.unwrap());
+    unique_queue_indices.insert(indices.present_family_index.unwrap());
 
     let queue_priorities = [1.0_f32];
+    let mut queue_create_infos = vec![];
 
-    let queue_create_info = vk::DeviceQueueCreateInfo {
-        s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::DeviceQueueCreateFlags::empty(),
-        queue_family_index: queue_familty_index,
-        p_queue_priorities: queue_priorities.as_ptr(),
-        queue_count: queue_priorities.len() as u32,
-    };
+    for queue_family_index in unique_queue_indices {
+        let queue_create_info = vk::DeviceQueueCreateInfo {
+            s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::DeviceQueueCreateFlags::empty(),
+            queue_family_index: queue_family_index,
+            p_queue_priorities: queue_priorities.as_ptr(),
+            queue_count: queue_priorities.len() as u32,
+        };
+        queue_create_infos.push(queue_create_info);
+    }
 
     let physical_device_features = vk::PhysicalDeviceFeatures { ..Default::default() };
 
@@ -29,8 +39,8 @@ pub fn create_logical_device(instance: &ash::Instance, physical_device: vk::Phys
         s_type: vk::StructureType::DEVICE_CREATE_INFO,
         p_next: std::ptr::null(),
         flags: vk::DeviceCreateFlags::empty(),
-        queue_create_info_count: 1,
-        p_queue_create_infos: &queue_create_info,
+        queue_create_info_count: queue_create_infos.len() as u32,
+        p_queue_create_infos: queue_create_infos.as_ptr(),
         enabled_layer_count: layers_ptr.len() as u32,
         pp_enabled_layer_names: layers_ptr.as_ptr(),
         enabled_extension_count: 0,
@@ -38,13 +48,9 @@ pub fn create_logical_device(instance: &ash::Instance, physical_device: vk::Phys
         p_enabled_features: &physical_device_features,
     };
 
-    let device: ash::Device = unsafe {
+    return unsafe {
         instance
             .create_device(physical_device, &device_create_info, None)
             .expect("Failed to create device")
     };
-
-    let graphics_queue = unsafe { device.get_device_queue(queue_familty_index, 0) };
-
-    (device, graphics_queue)
 }

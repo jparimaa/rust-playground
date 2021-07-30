@@ -7,15 +7,17 @@ pub struct VulkanApp {
     instance: ash::Instance,
     debug_utils: ash::extensions::ext::DebugUtils,
     debug_messenger: vk::DebugUtilsMessengerEXT,
-    physical_device: vk::PhysicalDevice,
+    surface: crate::surface::Surface,
+    _physical_device: vk::PhysicalDevice,
     device: ash::Device,
-    _graphics_queue: vk::Queue,
+    _queue_families: crate::utility::QueueFamilyIndices,
 }
 
 impl Drop for VulkanApp {
     fn drop(&mut self) {
         unsafe {
             self.device.destroy_device(None);
+            self.surface.loader.destroy_surface(self.surface.vk_surface_khr, None);
             self.debug_utils
                 .destroy_debug_utils_messenger(self.debug_messenger, None);
             self.instance.destroy_instance(None);
@@ -24,7 +26,7 @@ impl Drop for VulkanApp {
 }
 
 impl VulkanApp {
-    pub fn new() -> VulkanApp {
+    pub fn new(window: &winit::window::Window) -> VulkanApp {
         let entry = ash::Entry::new().unwrap();
 
         if !crate::utility::is_validation_layer_supported(&entry) {
@@ -33,18 +35,19 @@ impl VulkanApp {
 
         let instance = crate::instance::create_instance(&entry);
         let (debug_utils, debug_messenger) = crate::instance::create_debug_utils(&entry, &instance);
-        let physical_device = crate::physical_device::get_physical_device(&instance);
-
-        let (device, graphics_queue) = crate::device::create_logical_device(&instance, physical_device);
+        let surface = crate::surface::Surface::new(&entry, &instance, window);
+        let (physical_device, queue_families) = crate::physical_device::get_physical_device(&instance, &surface);
+        let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
 
         VulkanApp {
             _entry: entry,
             instance,
             debug_utils,
             debug_messenger,
-            physical_device,
+            surface,
+            _physical_device: physical_device,
             device,
-            _graphics_queue: graphics_queue,
+            _queue_families: queue_families,
         }
     }
 

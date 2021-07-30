@@ -1,5 +1,6 @@
 mod constants;
 mod device;
+mod surface;
 mod instance;
 mod physical_device;
 mod utility;
@@ -48,7 +49,7 @@ fn main_loop(
 fn main() {
     let event_loop = winit::event_loop::EventLoop::new();
     let window = init_window(&event_loop);
-    let vulkan_app = vulkan_app::VulkanApp::new();
+    let vulkan_app = vulkan_app::VulkanApp::new(&window);
 
     main_loop(event_loop, window, vulkan_app);
 }
