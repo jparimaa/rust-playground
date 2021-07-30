@@ -1,0 +1,8 @@
+[package]
+name = "ash-test"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+winit = "0.20.0"
+ash = "0.29.0"

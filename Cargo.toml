@@ -4,4 +4,5 @@ members = [
     "vulkano-test",
     "ecs/engine",
     "ecs/testapp",
+    "ash-test",
 ]
