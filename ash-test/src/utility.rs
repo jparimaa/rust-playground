@@ -78,3 +78,28 @@ pub fn is_validation_layer_supported(entry: &ash::Entry) -> bool {
 
     layer_found
 }
+
+pub fn are_device_extensions_supported(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    extensions: &std::collections::HashSet<String>,
+) -> bool {
+    let available_extensions = unsafe {
+        instance
+            .enumerate_device_extension_properties(physical_device)
+            .expect("Failed to get device extension properties")
+    };
+
+    let available_extension_names = available_extensions
+        .iter()
+        .map(|ext| crate::utility::c_char_to_string(&ext.extension_name))
+        .collect::<std::vec::Vec<String>>();
+
+    let mut required_extensions = extensions.clone();
+
+    for extension_name in available_extension_names.iter() {
+        required_extensions.remove(extension_name);
+    }
+
+    return required_extensions.is_empty();
+}

@@ -35,6 +35,8 @@ pub fn create_logical_device(
         .collect();
     let layers_ptr: Vec<*const i8> = layers_raw.iter().map(|layer_name| layer_name.as_ptr()).collect();
 
+    let enable_extension_names = [ash::extensions::khr::Swapchain::name().as_ptr()];
+
     let device_create_info = vk::DeviceCreateInfo {
         s_type: vk::StructureType::DEVICE_CREATE_INFO,
         p_next: std::ptr::null(),
@@ -43,8 +45,8 @@ pub fn create_logical_device(
         p_queue_create_infos: queue_create_infos.as_ptr(),
         enabled_layer_count: layers_ptr.len() as u32,
         pp_enabled_layer_names: layers_ptr.as_ptr(),
-        enabled_extension_count: 0,
-        pp_enabled_extension_names: std::ptr::null(),
+        enabled_extension_count: enable_extension_names.len() as u32,
+        pp_enabled_extension_names: enable_extension_names.as_ptr(),
         p_enabled_features: &physical_device_features,
     };
 
