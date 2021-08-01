@@ -17,9 +17,7 @@ pub struct VulkanApp {
 impl Drop for VulkanApp {
     fn drop(&mut self) {
         unsafe {
-            self.swapchain
-                .loader
-                .destroy_swapchain(self.swapchain.vk_swapchain_khr, None);
+            self.swapchain.destroy(&self.device);
             self.device.destroy_device(None);
             self.surface.loader.destroy_surface(self.surface.vk_surface_khr, None);
             self.debug_utils
@@ -42,7 +40,7 @@ impl VulkanApp {
         let surface = crate::surface::Surface::new(&entry, &instance, window);
         let (physical_device, queue_families) = crate::physical_device::get_physical_device(&instance, &surface);
         let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
-        let swapchain = crate::swapchain::create_swapchain(&instance, &device, physical_device, &surface);
+        let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
 
         VulkanApp {
             _entry: entry,
