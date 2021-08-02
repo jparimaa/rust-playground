@@ -41,6 +41,7 @@ impl VulkanApp {
         let (physical_device, queue_families) = crate::physical_device::get_physical_device(&instance, &surface);
         let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
         let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
+        create_graphics_pipeline(&device);
 
         VulkanApp {
             _entry: entry,
@@ -57,5 +58,42 @@ impl VulkanApp {
 
     pub fn draw_frame(&mut self) {
         // Drawing will be here
+    }
+}
+
+fn create_graphics_pipeline(device: &ash::Device) {
+    use std::path::Path;
+    let vertex_shader_code = crate::utility::read_file(Path::new("vert.spv"));
+    let fragment_shader_code = crate::utility::read_file(Path::new("frag.spv"));
+
+    let vertex_shader_module = crate::utility::create_shader_module(device, vertex_shader_code);
+    let fragment_shader_module = crate::utility::create_shader_module(device, fragment_shader_code);
+
+    let main_function_name = std::ffi::CString::new("main").unwrap();
+
+    let _shader_stages = [
+        vk::PipelineShaderStageCreateInfo {
+            s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::PipelineShaderStageCreateFlags::empty(),
+            module: vertex_shader_module,
+            p_name: main_function_name.as_ptr(),
+            p_specialization_info: std::ptr::null(),
+            stage: vk::ShaderStageFlags::VERTEX,
+        },
+        vk::PipelineShaderStageCreateInfo {
+            s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::PipelineShaderStageCreateFlags::empty(),
+            module: fragment_shader_module,
+            p_name: main_function_name.as_ptr(),
+            p_specialization_info: std::ptr::null(),
+            stage: vk::ShaderStageFlags::FRAGMENT,
+        },
+    ];
+
+    unsafe {
+        device.destroy_shader_module(vertex_shader_module, None);
+        device.destroy_shader_module(fragment_shader_module, None);
     }
 }

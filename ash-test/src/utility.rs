@@ -1,4 +1,5 @@
 use ash::version::EntryV1_0;
+use ash::version::DeviceV1_0;
 use ash::version::InstanceV1_0;
 use ash::vk;
 
@@ -102,4 +103,26 @@ pub fn are_device_extensions_supported(
     }
 
     return required_extensions.is_empty();
+}
+
+pub fn read_file(filepath: &std::path::Path) -> Vec<u8> {
+    use std::io::Read;
+    let spv_file = std::fs::File::open(filepath).expect(&format!("Failed to load spv file at {:?}", filepath));
+    spv_file.bytes().filter_map(|byte| byte.ok()).collect()
+}
+
+pub fn create_shader_module(device: &ash::Device, byte_code: Vec<u8>) -> vk::ShaderModule {
+    let shader_module_create_info = vk::ShaderModuleCreateInfo {
+        s_type: vk::StructureType::SHADER_MODULE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: vk::ShaderModuleCreateFlags::empty(),
+        code_size: byte_code.len(),
+        p_code: byte_code.as_ptr() as *const u32,
+    };
+
+    unsafe {
+        device
+            .create_shader_module(&shader_module_create_info, None)
+            .expect("Failed to create shader module")
+    }
 }
