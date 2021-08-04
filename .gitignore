@@ -17,3 +17,4 @@ ecs/engine/target
 ecs/testapp/target
 
 .vscode
+*.spv

@@ -63,8 +63,8 @@ impl VulkanApp {
 
 fn create_graphics_pipeline(device: &ash::Device) {
     use std::path::Path;
-    let vertex_shader_code = crate::utility::read_file(Path::new("vert.spv"));
-    let fragment_shader_code = crate::utility::read_file(Path::new("frag.spv"));
+    let vertex_shader_code = crate::utility::read_file(Path::new("ash-test/shader_bin/vert.spv"));
+    let fragment_shader_code = crate::utility::read_file(Path::new("ash-test/shader_bin/frag.spv"));
 
     let vertex_shader_module = crate::utility::create_shader_module(device, vertex_shader_code);
     let fragment_shader_module = crate::utility::create_shader_module(device, fragment_shader_code);
