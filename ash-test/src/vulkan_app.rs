@@ -13,13 +13,20 @@ pub struct VulkanApp {
     _queue_families: crate::utility::QueueFamilyIndices,
     swapchain: crate::swapchain::Swapchain,
     render_pass: vk::RenderPass,
+    framebuffers: Vec<vk::Framebuffer>,
     pipeline_layout: vk::PipelineLayout,
     graphics_pipeline: vk::Pipeline,
+    command_pool: vk::CommandPool,
+    _command_buffers: Vec<vk::CommandBuffer>,
 }
 
 impl Drop for VulkanApp {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_command_pool(self.command_pool, None);
+            for &framebuffer in self.framebuffers.iter() {
+                self.device.destroy_framebuffer(framebuffer, None);
+            }
             self.device.destroy_pipeline(self.graphics_pipeline, None);
             self.device.destroy_pipeline_layout(self.pipeline_layout, None);
             self.device.destroy_render_pass(self.render_pass, None);
@@ -48,7 +55,17 @@ impl VulkanApp {
         let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
         let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
         let render_pass = create_render_pass(&device, swapchain.format);
+        let framebuffers = create_framebuffers(&device, render_pass, &swapchain.image_views, &swapchain.extent);
         let (pipeline_layout, graphics_pipeline) = create_graphics_pipeline(&device, render_pass, swapchain.extent);
+        let command_pool = create_command_pool(&device, &queue_families);
+        let command_buffers = create_command_buffers(
+            &device,
+            command_pool,
+            graphics_pipeline,
+            &framebuffers,
+            render_pass,
+            swapchain.extent,
+        );
 
         VulkanApp {
             _entry: entry,
@@ -61,8 +78,11 @@ impl VulkanApp {
             _queue_families: queue_families,
             swapchain,
             render_pass,
+            framebuffers,
             pipeline_layout,
             graphics_pipeline,
+            command_pool,
+            _command_buffers: command_buffers,
         }
     }
 
@@ -163,6 +183,7 @@ fn create_graphics_pipeline(
         depth_bias_enable: vk::FALSE,
         depth_bias_slope_factor: 0.0,
     };
+
     let multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         flags: vk::PipelineMultisampleStateCreateFlags::empty(),
@@ -263,7 +284,7 @@ fn create_graphics_pipeline(
     let graphics_pipelines = unsafe {
         device
             .create_graphics_pipelines(vk::PipelineCache::null(), &graphic_pipeline_create_infos, None)
-            .expect("Failed to create Graphics Pipeline!.")
+            .expect("Failed to create graphics pipeline")
     };
 
     unsafe {
@@ -326,4 +347,119 @@ fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::R
     };
 
     render_pass
+}
+
+fn create_framebuffers(
+    device: &ash::Device,
+    render_pass: vk::RenderPass,
+    image_views: &Vec<vk::ImageView>,
+    swapchain_extent: &vk::Extent2D,
+) -> Vec<vk::Framebuffer> {
+    let mut framebuffers = vec![];
+
+    for &image_view in image_views.iter() {
+        let attachments = [image_view];
+
+        let framebuffer_create_info = vk::FramebufferCreateInfo {
+            s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::FramebufferCreateFlags::empty(),
+            render_pass,
+            attachment_count: attachments.len() as u32,
+            p_attachments: attachments.as_ptr(),
+            width: swapchain_extent.width,
+            height: swapchain_extent.height,
+            layers: 1,
+        };
+
+        let framebuffer = unsafe {
+            device
+                .create_framebuffer(&framebuffer_create_info, None)
+                .expect("Failed to create framebuffer")
+        };
+
+        framebuffers.push(framebuffer);
+    }
+
+    framebuffers
+}
+
+fn create_command_pool(
+    device: &ash::Device,
+    queue_family_indices: &crate::utility::QueueFamilyIndices,
+) -> vk::CommandPool {
+    let command_pool_create_info = vk::CommandPoolCreateInfo {
+        s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: vk::CommandPoolCreateFlags::empty(),
+        queue_family_index: queue_family_indices.graphics_family.unwrap(),
+    };
+
+    unsafe {
+        device
+            .create_command_pool(&command_pool_create_info, None)
+            .expect("Failed to create command pool")
+    }
+}
+
+fn create_command_buffers(
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    graphics_pipeline: vk::Pipeline,
+    framebuffers: &Vec<vk::Framebuffer>,
+    render_pass: vk::RenderPass,
+    swapchain_extent: vk::Extent2D,
+) -> Vec<vk::CommandBuffer> {
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
+        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
+        p_next: std::ptr::null(),
+        command_buffer_count: framebuffers.len() as u32,
+        command_pool,
+        level: vk::CommandBufferLevel::PRIMARY,
+    };
+
+    let command_buffers = unsafe {
+        device
+            .allocate_command_buffers(&command_buffer_allocate_info)
+            .expect("Failed to allocate Command Buffers!")
+    };
+
+    for (i, &command_buffer) in command_buffers.iter().enumerate() {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
+            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            p_inheritance_info: std::ptr::null(),
+            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
+        };
+
+        let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.2, 1.0] } }];
+
+        let render_pass_begin_info = vk::RenderPassBeginInfo {
+            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            render_pass,
+            framebuffer: framebuffers[i],
+            render_area: vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: swapchain_extent,
+            },
+            clear_value_count: clear_values.len() as u32,
+            p_clear_values: clear_values.as_ptr(),
+        };
+
+        unsafe {
+            device
+                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+                .expect("Failed to begin command buffer");
+            device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
+            device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline);
+            device.cmd_draw(command_buffer, 3, 1, 0, 0);
+            device.cmd_end_render_pass(command_buffer);
+            device
+                .end_command_buffer(command_buffer)
+                .expect("Failed to end command buffer");
+        }
+    }
+
+    command_buffers
 }

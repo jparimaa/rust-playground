@@ -8,8 +8,8 @@ pub fn create_logical_device(
 ) -> ash::Device {
     use std::collections::HashSet;
     let mut unique_queue_indices = HashSet::new();
-    unique_queue_indices.insert(indices.graphics_family_index.unwrap());
-    unique_queue_indices.insert(indices.present_family_index.unwrap());
+    unique_queue_indices.insert(indices.graphics_family.unwrap());
+    unique_queue_indices.insert(indices.present_family.unwrap());
 
     let queue_priorities = [1.0_f32];
     let mut queue_create_infos = vec![];

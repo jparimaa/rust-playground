@@ -4,17 +4,17 @@ use ash::version::InstanceV1_0;
 use ash::vk;
 
 pub struct QueueFamilyIndices {
-    pub graphics_family_index: Option<u32>,
-    pub present_family_index: Option<u32>,
+    pub graphics_family: Option<u32>,
+    pub present_family: Option<u32>,
 }
 
 impl QueueFamilyIndices {
     pub fn new() -> QueueFamilyIndices {
-        QueueFamilyIndices { graphics_family_index: None, present_family_index: None }
+        QueueFamilyIndices { graphics_family: None, present_family: None }
     }
 
     pub fn is_complete(&self) -> bool {
-        self.graphics_family_index.is_some() && self.present_family_index.is_some()
+        self.graphics_family.is_some() && self.present_family.is_some()
     }
 }
 
@@ -28,7 +28,7 @@ pub fn get_queue_family_indices(
 
     for (index, queue_family) in queue_families.iter().enumerate() {
         if queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS) {
-            indices.graphics_family_index = Some(index as u32);
+            indices.graphics_family = Some(index as u32);
         }
 
         let is_present_support = unsafe {
@@ -38,7 +38,7 @@ pub fn get_queue_family_indices(
         };
 
         if is_present_support {
-            indices.present_family_index = Some(index as u32);
+            indices.present_family = Some(index as u32);
         }
 
         if indices.is_complete() {
