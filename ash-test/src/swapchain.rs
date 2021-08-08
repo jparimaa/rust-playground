@@ -36,6 +36,7 @@ pub struct Swapchain {
     pub format: vk::Format,
     pub extent: vk::Extent2D,
     pub image_views: Vec<vk::ImageView>,
+    pub length: usize,
 }
 
 impl Swapchain {
@@ -90,6 +91,7 @@ impl Swapchain {
         };
 
         let image_views = create_image_views(device, surface_format.format, &images);
+        let length = image_views.len();
 
         Swapchain {
             loader: swapchain_loader,
@@ -98,6 +100,7 @@ impl Swapchain {
             extent,
             images,
             image_views,
+            length,
         }
     }
 
