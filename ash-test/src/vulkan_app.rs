@@ -2,6 +2,27 @@ use ash::version::DeviceV1_0;
 use ash::version::InstanceV1_0;
 use ash::vk;
 
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+struct Vertex {
+    pos: [f32; 2],
+    color: [f32; 3],
+}
+const VERTICES_DATA: [Vertex; 3] = [
+    Vertex {
+        pos: [0.0, -0.5],
+        color: [1.0, 1.0, 1.0],
+    },
+    Vertex {
+        pos: [0.5, 0.5],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        pos: [-0.5, 0.5],
+        color: [0.0, 0.0, 1.0],
+    },
+];
+
 struct SyncObjects {
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
@@ -21,6 +42,8 @@ pub struct VulkanApp {
     swapchain: crate::swapchain::Swapchain,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
+    vertex_buffer: vk::Buffer,
+    vertex_buffer_memory: vk::DeviceMemory,
     pipeline_layout: vk::PipelineLayout,
     graphics_pipeline: vk::Pipeline,
     command_pool: vk::CommandPool,
@@ -47,6 +70,9 @@ impl Drop for VulkanApp {
             }
             self.device.destroy_pipeline(self.graphics_pipeline, None);
             self.device.destroy_pipeline_layout(self.pipeline_layout, None);
+            
+            self.device.destroy_buffer(self.vertex_buffer, None);
+            self.device.free_memory(self.vertex_buffer_memory, None);
             self.device.destroy_render_pass(self.render_pass, None);
             self.swapchain.destroy(&self.device);
             self.device.destroy_device(None);
@@ -75,6 +101,7 @@ impl VulkanApp {
         let present_queue = unsafe { device.get_device_queue(queue_families.present_family.unwrap(), 0) };
         let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
         let render_pass = create_render_pass(&device, swapchain.format);
+        let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(&instance, &device, physical_device);
         let framebuffers = create_framebuffers(&device, render_pass, &swapchain.image_views, &swapchain.extent);
         let (pipeline_layout, graphics_pipeline) = create_graphics_pipeline(&device, render_pass, swapchain.extent);
         let command_pool = create_command_pool(&device, &queue_families);
@@ -85,6 +112,7 @@ impl VulkanApp {
             &framebuffers,
             render_pass,
             swapchain.extent,
+            vertex_buffer,
         );
         let sync_objects = create_sync_objects(&device, swapchain.length);
 
@@ -100,6 +128,8 @@ impl VulkanApp {
             present_queue,
             swapchain,
             render_pass,
+            vertex_buffer,
+            vertex_buffer_memory,
             framebuffers,
             pipeline_layout,
             graphics_pipeline,
@@ -184,6 +214,83 @@ impl VulkanApp {
     }
 }
 
+fn create_vertex_buffer(
+    instance: &ash::Instance,
+    device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
+) -> (vk::Buffer, vk::DeviceMemory) {
+    let vertex_buffer_create_info = vk::BufferCreateInfo {
+        s_type: vk::StructureType::BUFFER_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: vk::BufferCreateFlags::empty(),
+        size: std::mem::size_of_val(&VERTICES_DATA) as u64,
+        usage: vk::BufferUsageFlags::VERTEX_BUFFER,
+        sharing_mode: vk::SharingMode::EXCLUSIVE,
+        queue_family_index_count: 0,
+        p_queue_family_indices: std::ptr::null(),
+    };
+
+    let vertex_buffer = unsafe {
+        device
+            .create_buffer(&vertex_buffer_create_info, None)
+            .expect("Failed to create vertex buffer")
+    };
+
+    let mem_requirements = unsafe { device.get_buffer_memory_requirements(vertex_buffer) };
+    let mem_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+    let required_memory_flags: vk::MemoryPropertyFlags =
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
+    let memory_type = find_memory_type(mem_requirements.memory_type_bits, required_memory_flags, mem_properties);
+
+    let allocate_info = vk::MemoryAllocateInfo {
+        s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
+        p_next: std::ptr::null(),
+        allocation_size: mem_requirements.size,
+        memory_type_index: memory_type,
+    };
+
+    let vertex_buffer_memory = unsafe {
+        device
+            .allocate_memory(&allocate_info, None)
+            .expect("Failed to allocate vertex buffer memory")
+    };
+
+    unsafe {
+        device
+            .bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)
+            .expect("Failed to bind vertex buffer");
+
+        let data_ptr = device
+            .map_memory(
+                vertex_buffer_memory,
+                0,
+                vertex_buffer_create_info.size,
+                vk::MemoryMapFlags::empty(),
+            )
+            .expect("Failed to map memory") as *mut Vertex;
+
+        data_ptr.copy_from_nonoverlapping(VERTICES_DATA.as_ptr(), VERTICES_DATA.len());
+
+        device.unmap_memory(vertex_buffer_memory);
+    }
+
+    (vertex_buffer, vertex_buffer_memory)
+}
+
+fn find_memory_type(
+    type_filter: u32,
+    required_properties: vk::MemoryPropertyFlags,
+    mem_properties: vk::PhysicalDeviceMemoryProperties,
+) -> u32 {
+    for (i, memory_type) in mem_properties.memory_types.iter().enumerate() {
+        if (type_filter & (1 << i)) > 0 && memory_type.property_flags.contains(required_properties) {
+            return i as u32;
+        }
+    }
+
+    panic!("Failed to find suitable memory type")
+}
+
 fn create_graphics_pipeline(
     device: &ash::Device,
     render_pass: vk::RenderPass,
@@ -219,14 +326,35 @@ fn create_graphics_pipeline(
         },
     ];
 
+    let input_binding = [vk::VertexInputBindingDescription {
+        binding: 0,
+        stride: std::mem::size_of::<Vertex>() as u32,
+        input_rate: vk::VertexInputRate::VERTEX,
+    }];
+
+    let input_attributes = [
+        vk::VertexInputAttributeDescription {
+            location: 0,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: memoffset::offset_of!(Vertex, pos) as u32,
+        },
+        vk::VertexInputAttributeDescription {
+            binding: 0,
+            location: 1,
+            format: vk::Format::R32G32B32_SFLOAT,
+            offset: memoffset::offset_of!(Vertex, color) as u32,
+        },
+    ];
+
     let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         p_next: std::ptr::null(),
         flags: vk::PipelineVertexInputStateCreateFlags::empty(),
-        vertex_attribute_description_count: 0,
-        p_vertex_attribute_descriptions: std::ptr::null(),
-        vertex_binding_description_count: 0,
-        p_vertex_binding_descriptions: std::ptr::null(),
+        vertex_attribute_description_count: input_attributes.len() as u32,
+        p_vertex_attribute_descriptions: input_attributes.as_ptr(),
+        vertex_binding_description_count: input_binding.len() as u32,
+        p_vertex_binding_descriptions: input_binding.as_ptr(),
     };
 
     let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
@@ -418,7 +546,7 @@ fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::R
         preserve_attachment_count: 0,
         p_preserve_attachments: std::ptr::null(),
     }];
-    
+
     let render_pass_attachments = [color_attachment];
 
     let subpass_dependencies = [vk::SubpassDependency {
@@ -512,6 +640,7 @@ fn create_command_buffers(
     framebuffers: &Vec<vk::Framebuffer>,
     render_pass: vk::RenderPass,
     swapchain_extent: vk::Extent2D,
+    vertex_buffer: vk::Buffer,
 ) -> Vec<vk::CommandBuffer> {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
         s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
@@ -535,7 +664,11 @@ fn create_command_buffers(
             flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
         };
 
-        let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.2, 1.0] } }];
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.0, 0.0, 0.2, 1.0],
+            },
+        }];
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
@@ -555,8 +688,11 @@ fn create_command_buffers(
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin command buffer");
             device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
-            device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline);
-            device.cmd_draw(command_buffer, 3, 1, 0, 0);
+            device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline);            
+            let vertex_buffers = [vertex_buffer];
+            let offsets = [0_u64];
+            device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
+            device.cmd_draw(command_buffer, VERTICES_DATA.len() as u32, 1, 0, 0);
             device.cmd_end_render_pass(command_buffer);
             device
                 .end_command_buffer(command_buffer)
