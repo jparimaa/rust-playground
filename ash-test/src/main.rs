@@ -5,6 +5,7 @@ mod surface;
 mod instance;
 mod physical_device;
 mod utility;
+mod presenter;
 mod vulkan_app;
 
 fn init_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window::Window {
@@ -41,7 +42,7 @@ fn main_loop(
             window.request_redraw();
         }
         Event::RedrawRequested(_window_id) => {
-            vulkan_app.draw_frame();
+            vulkan_app.draw();
         }
         _ => {}
     })
