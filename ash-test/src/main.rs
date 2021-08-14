@@ -1,11 +1,12 @@
-mod swapchain;
 mod constants;
 mod device;
-mod surface;
 mod instance;
 mod physical_device;
-mod utility;
+mod pipeline;
 mod presenter;
+mod surface;
+mod swapchain;
+mod utility;
 mod vulkan_app;
 
 fn init_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window::Window {

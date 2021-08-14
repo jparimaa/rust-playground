@@ -10,22 +10,10 @@ struct Vertex {
 }
 
 const VERTICES_DATA: [Vertex; 4] = [
-    Vertex {
-        pos: [-0.5, -0.5],
-        color: [1.0, 0.0, 0.0],
-    },
-    Vertex {
-        pos: [0.5, -0.5],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [0.5, 0.5],
-        color: [0.0, 0.0, 1.0],
-    },
-    Vertex {
-        pos: [-0.5, 0.5],
-        color: [0.0, 1.0, 0.0],
-    },
+    Vertex { pos: [-0.5, -0.5], color: [1.0, 0.0, 0.0] },
+    Vertex { pos: [0.5, -0.5], color: [0.0, 1.0, 0.0] },
+    Vertex { pos: [0.5, 0.5], color: [0.0, 0.0, 1.0] },
+    Vertex { pos: [-0.5, 0.5], color: [0.0, 1.0, 0.0] },
 ];
 
 const INDICES_DATA: [u32; 6] = [0, 1, 2, 2, 3, 0];
@@ -72,10 +60,8 @@ impl VulkanApp {
         let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
         let render_pass = create_render_pass(&device, swapchain.format);
         let command_pool = crate::utility::create_command_pool(&device, queue_families.graphics_family.unwrap());
-        let (vertex_buffer, vertex_buffer_memory) =
-            create_vertex_buffer(&instance, &device, physical_device, command_pool, graphics_queue);
-        let (index_buffer, index_buffer_memory) =
-            create_index_buffer(&instance, &device, physical_device, command_pool, graphics_queue);
+        let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(&instance, &device, physical_device, command_pool, graphics_queue);
+        let (index_buffer, index_buffer_memory) = create_index_buffer(&instance, &device, physical_device, command_pool, graphics_queue);
         let framebuffers = create_framebuffers(&device, render_pass, &swapchain.image_views, &swapchain.extent);
         let (pipeline_layout, graphics_pipeline) = create_graphics_pipeline(&device, render_pass, swapchain.extent);
         let command_buffers = create_command_buffers(
@@ -146,8 +132,7 @@ impl Drop for VulkanApp {
             self.swapchain.destroy(&self.device);
             self.device.destroy_device(None);
             self.surface.loader.destroy_surface(self.surface.vk_surface_khr, None);
-            self.debug_utils
-                .destroy_debug_utils_messenger(self.debug_messenger, None);
+            self.debug_utils.destroy_debug_utils_messenger(self.debug_messenger, None);
             self.instance.destroy_instance(None);
         }
     }
@@ -189,14 +174,7 @@ fn create_vertex_buffer(
         &device_memory_properties,
     );
 
-    crate::utility::copy_buffer(
-        device,
-        submit_queue,
-        command_pool,
-        staging_buffer,
-        vertex_buffer,
-        buffer_size,
-    );
+    crate::utility::copy_buffer(device, submit_queue, command_pool, staging_buffer, vertex_buffer, buffer_size);
 
     unsafe {
         device.destroy_buffer(staging_buffer, None);
@@ -242,14 +220,7 @@ fn create_index_buffer(
         &device_memory_properties,
     );
 
-    crate::utility::copy_buffer(
-        device,
-        submit_queue,
-        command_pool,
-        staging_buffer,
-        index_buffer,
-        buffer_size,
-    );
+    crate::utility::copy_buffer(device, submit_queue, command_pool, staging_buffer, index_buffer, buffer_size);
 
     unsafe {
         device.destroy_buffer(staging_buffer, None);
@@ -294,13 +265,13 @@ fn create_graphics_pipeline(
         },
     ];
 
-    let input_binding = [vk::VertexInputBindingDescription {
+    let input_binding = vec![vk::VertexInputBindingDescription {
         binding: 0,
         stride: std::mem::size_of::<Vertex>() as u32,
         input_rate: vk::VertexInputRate::VERTEX,
     }];
 
-    let input_attributes = [
+    let input_attributes = vec![
         vk::VertexInputAttributeDescription {
             location: 0,
             binding: 0,
@@ -315,132 +286,19 @@ fn create_graphics_pipeline(
         },
     ];
 
-    let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineVertexInputStateCreateFlags::empty(),
-        vertex_attribute_description_count: input_attributes.len() as u32,
-        p_vertex_attribute_descriptions: input_attributes.as_ptr(),
-        vertex_binding_description_count: input_binding.len() as u32,
-        p_vertex_binding_descriptions: input_binding.as_ptr(),
-    };
+    use crate::pipeline;
 
-    let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
-        p_next: std::ptr::null(),
-        primitive_restart_enable: vk::FALSE,
-        topology: vk::PrimitiveTopology::TRIANGLE_LIST,
-    };
-
-    let viewports = [vk::Viewport {
-        x: 0.0,
-        y: 0.0,
-        width: swapchain_extent.width as f32,
-        height: swapchain_extent.height as f32,
-        min_depth: 0.0,
-        max_depth: 1.0,
-    }];
-
-    let scissors = [vk::Rect2D {
-        offset: vk::Offset2D { x: 0, y: 0 },
-        extent: swapchain_extent,
-    }];
-
-    let viewport_state_create_info = vk::PipelineViewportStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineViewportStateCreateFlags::empty(),
-        scissor_count: scissors.len() as u32,
-        p_scissors: scissors.as_ptr(),
-        viewport_count: viewports.len() as u32,
-        p_viewports: viewports.as_ptr(),
-    };
-
-    let rasterization_statue_create_info = vk::PipelineRasterizationStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineRasterizationStateCreateFlags::empty(),
-        depth_clamp_enable: vk::FALSE,
-        cull_mode: vk::CullModeFlags::BACK,
-        front_face: vk::FrontFace::CLOCKWISE,
-        line_width: 1.0,
-        polygon_mode: vk::PolygonMode::FILL,
-        rasterizer_discard_enable: vk::FALSE,
-        depth_bias_clamp: 0.0,
-        depth_bias_constant_factor: 0.0,
-        depth_bias_enable: vk::FALSE,
-        depth_bias_slope_factor: 0.0,
-    };
-
-    let multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        flags: vk::PipelineMultisampleStateCreateFlags::empty(),
-        p_next: std::ptr::null(),
-        rasterization_samples: vk::SampleCountFlags::TYPE_1,
-        sample_shading_enable: vk::FALSE,
-        min_sample_shading: 0.0,
-        p_sample_mask: std::ptr::null(),
-        alpha_to_one_enable: vk::FALSE,
-        alpha_to_coverage_enable: vk::FALSE,
-    };
-
-    let stencil_state = vk::StencilOpState {
-        fail_op: vk::StencilOp::KEEP,
-        pass_op: vk::StencilOp::KEEP,
-        depth_fail_op: vk::StencilOp::KEEP,
-        compare_op: vk::CompareOp::ALWAYS,
-        compare_mask: 0,
-        write_mask: 0,
-        reference: 0,
-    };
-
-    let depth_state_create_info = vk::PipelineDepthStencilStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineDepthStencilStateCreateFlags::empty(),
-        depth_test_enable: vk::FALSE,
-        depth_write_enable: vk::FALSE,
-        depth_compare_op: vk::CompareOp::LESS_OR_EQUAL,
-        depth_bounds_test_enable: vk::FALSE,
-        stencil_test_enable: vk::FALSE,
-        front: stencil_state,
-        back: stencil_state,
-        max_depth_bounds: 1.0,
-        min_depth_bounds: 0.0,
-    };
-
-    let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState {
-        blend_enable: vk::FALSE,
-        color_write_mask: vk::ColorComponentFlags::all(),
-        src_color_blend_factor: vk::BlendFactor::ONE,
-        dst_color_blend_factor: vk::BlendFactor::ZERO,
-        color_blend_op: vk::BlendOp::ADD,
-        src_alpha_blend_factor: vk::BlendFactor::ONE,
-        dst_alpha_blend_factor: vk::BlendFactor::ZERO,
-        alpha_blend_op: vk::BlendOp::ADD,
-    }];
-
-    let color_blend_state = vk::PipelineColorBlendStateCreateInfo {
-        s_type: vk::StructureType::PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineColorBlendStateCreateFlags::empty(),
-        logic_op_enable: vk::FALSE,
-        logic_op: vk::LogicOp::COPY,
-        attachment_count: color_blend_attachment_states.len() as u32,
-        p_attachments: color_blend_attachment_states.as_ptr(),
-        blend_constants: [0.0, 0.0, 0.0, 0.0],
-    };
-
-    let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo {
-        s_type: vk::StructureType::PIPELINE_LAYOUT_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::PipelineLayoutCreateFlags::empty(),
-        set_layout_count: 0,
-        p_set_layouts: std::ptr::null(),
-        push_constant_range_count: 0,
-        p_push_constant_ranges: std::ptr::null(),
-    };
+    let vertex_input_state_create_info = pipeline::get_default_vertex_input_state(&input_attributes, &input_binding);
+    let vertex_input_assembly_state_info = pipeline::get_default_input_assembly_state();
+    let viewports = pipeline::get_default_viewports(swapchain_extent);
+    let scissors = pipeline::get_default_scissors(swapchain_extent);
+    let viewport_state_create_info = pipeline::get_default_viewport_state(&viewports, &scissors);
+    let rasterization_statue_create_info = pipeline::get_default_rasterization_state();
+    let multisample_state_create_info = pipeline::get_default_multisample_state();
+    let depth_state_create_info = pipeline::get_default_depth_stencil_state();
+    let color_blend_attachments = pipeline::get_default_color_blend_attachments();
+    let color_blend_state = pipeline::get_default_color_blend_state(&color_blend_attachments);
+    let pipeline_layout_create_info = pipeline::get_default_pipeline_layout();
 
     let pipeline_layout = unsafe {
         device
@@ -615,11 +473,7 @@ fn create_command_buffers(
             flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
         };
 
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.2, 1.0],
-            },
-        }];
+        let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.2, 1.0] } }];
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
@@ -646,9 +500,7 @@ fn create_command_buffers(
             device.cmd_bind_index_buffer(command_buffer, index_buffer, 0, vk::IndexType::UINT32);
             device.cmd_draw_indexed(command_buffer, INDICES_DATA.len() as u32, 1, 0, 0, 0);
             device.cmd_end_render_pass(command_buffer);
-            device
-                .end_command_buffer(command_buffer)
-                .expect("Failed to end command buffer");
+            device.end_command_buffer(command_buffer).expect("Failed to end command buffer");
         }
     }
 
