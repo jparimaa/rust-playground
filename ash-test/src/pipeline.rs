@@ -43,10 +43,7 @@ pub fn get_default_scissors(extent: vk::Extent2D) -> Vec<vk::Rect2D> {
     }]
 }
 
-pub fn get_default_viewport_state(
-    viewports: &Vec<vk::Viewport>,
-    scissors: &Vec<vk::Rect2D>,
-) -> vk::PipelineViewportStateCreateInfo {
+pub fn get_default_viewport_state(viewports: &Vec<vk::Viewport>, scissors: &Vec<vk::Rect2D>) -> vk::PipelineViewportStateCreateInfo {
     vk::PipelineViewportStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         p_next: std::ptr::null(),
@@ -145,13 +142,13 @@ pub fn get_default_color_blend_state(
     }
 }
 
-pub fn get_default_pipeline_layout() -> vk::PipelineLayoutCreateInfo {
+pub fn get_default_pipeline_layout(layouts: &Vec<vk::DescriptorSetLayout>) -> vk::PipelineLayoutCreateInfo {
     vk::PipelineLayoutCreateInfo {
         s_type: vk::StructureType::PIPELINE_LAYOUT_CREATE_INFO,
         p_next: std::ptr::null(),
         flags: vk::PipelineLayoutCreateFlags::empty(),
-        set_layout_count: 0,
-        p_set_layouts: std::ptr::null(),
+        set_layout_count: layouts.len() as u32,
+        p_set_layouts: layouts.as_ptr(),
         push_constant_range_count: 0,
         p_push_constant_ranges: std::ptr::null(),
     }

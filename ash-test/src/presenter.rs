@@ -37,9 +37,7 @@ impl Presenter {
                     .create_semaphore(&semaphore_create_info, None)
                     .expect("Failed to create semaphore");
 
-                let in_flight_fence = device
-                    .create_fence(&fence_create_info, None)
-                    .expect("Failed to create fence");
+                let in_flight_fence = device.create_fence(&fence_create_info, None).expect("Failed to create fence");
 
                 image_available_semaphores.push(image_available_semaphore);
                 render_finished_semaphores.push(render_finished_semaphore);
@@ -66,6 +64,21 @@ impl Presenter {
         }
     }
 
+    pub fn acquire_image(&self, swapchain: &crate::swapchain::Swapchain) -> u32 {
+        let (image_index, _is_sub_optimal) = unsafe {
+            swapchain
+                .loader
+                .acquire_next_image(
+                    swapchain.vk_swapchain_khr,
+                    std::u64::MAX,
+                    self.image_available_semaphores[self.current_frame_index],
+                    vk::Fence::null(),
+                )
+                .expect("Failed to acquire next swapchain image")
+        };
+        image_index
+    }
+
     pub fn present(
         &mut self,
         device: &ash::Device,
@@ -73,6 +86,7 @@ impl Presenter {
         command_buffers: &Vec<vk::CommandBuffer>,
         graphics_queue: ash::vk::Queue,
         present_queue: ash::vk::Queue,
+        image_index: u32,
     ) {
         let frame_index = self.current_frame_index;
         let in_flight_fence = self.in_flight_fences[frame_index];
@@ -82,22 +96,8 @@ impl Presenter {
             device
                 .wait_for_fences(&in_flight_fence_array, true, std::u64::MAX)
                 .expect("Failed to wait for fence");
-            device
-                .reset_fences(&in_flight_fence_array)
-                .expect("Failed to reset fence");
+            device.reset_fences(&in_flight_fence_array).expect("Failed to reset fence");
         }
-
-        let (image_index, _is_sub_optimal) = unsafe {
-            swapchain
-                .loader
-                .acquire_next_image(
-                    swapchain.vk_swapchain_khr,
-                    std::u64::MAX,
-                    self.image_available_semaphores[frame_index],
-                    vk::Fence::null(),
-                )
-                .expect("Failed to acquire next swapchain image")
-        };
 
         let image_available_semaphore = [self.image_available_semaphores[frame_index]];
         let queue_completed_semaphore = [self.render_finished_semaphores[frame_index]];

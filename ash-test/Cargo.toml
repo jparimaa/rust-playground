@@ -9,3 +9,4 @@ ash = "0.29.0"
 num = "0.2"
 winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }
 memoffset = "0.5.1"
+cgmath = "0.17.0"
