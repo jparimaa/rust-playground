@@ -10,22 +10,10 @@ struct Vertex {
 }
 
 const VERTICES_DATA: [Vertex; 4] = [
-    Vertex {
-        pos: [-0.5, -0.5],
-        color: [1.0, 0.0, 0.0],
-    },
-    Vertex {
-        pos: [0.5, -0.5],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [0.5, 0.5],
-        color: [0.0, 0.0, 1.0],
-    },
-    Vertex {
-        pos: [-0.5, 0.5],
-        color: [0.0, 1.0, 0.0],
-    },
+    Vertex { pos: [-0.5, -0.5], color: [1.0, 0.0, 0.0] },
+    Vertex { pos: [0.5, -0.5], color: [0.0, 1.0, 0.0] },
+    Vertex { pos: [0.5, 0.5], color: [0.0, 0.0, 1.0] },
+    Vertex { pos: [-0.5, 0.5], color: [0.0, 1.0, 0.0] },
 ];
 
 const INDICES_DATA: [u32; 6] = [0, 1, 2, 2, 3, 0];
@@ -38,39 +26,52 @@ struct WVPMatrices {
     projection: cgmath::Matrix4<f32>,
 }
 
+#[rustfmt::skip]
 pub struct VulkanApp {
     _entry: ash::Entry,
     instance: ash::Instance,
+
     debug_utils: ash::extensions::ext::DebugUtils,
     debug_messenger: vk::DebugUtilsMessengerEXT,
+
     surface: crate::surface::Surface,
     _physical_device: vk::PhysicalDevice,
     device: ash::Device,
     graphics_queue: ash::vk::Queue,
     present_queue: ash::vk::Queue,
+
     swapchain: crate::swapchain::Swapchain,
     render_pass: vk::RenderPass,
+
     desc_set_layout: vk::DescriptorSetLayout,
     framebuffers: Vec<vk::Framebuffer>,
+
     vertex_buffer: vk::Buffer,
     vertex_buffer_memory: vk::DeviceMemory,
+
     index_buffer: vk::Buffer,
     index_buffer_memory: vk::DeviceMemory,
+
     ubo_data: WVPMatrices,
     uniform_buffers: Vec<vk::Buffer>,
     uniform_buffers_memory: Vec<vk::DeviceMemory>,
+
     descriptor_pool: vk::DescriptorPool,
     _descriptor_sets: Vec<vk::DescriptorSet>,
+
     pipeline_layout: vk::PipelineLayout,
     graphics_pipeline: vk::Pipeline,
+
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
+
     presenter: crate::presenter::Presenter,
     time_instant: std::time::Instant,
     total_duration: std::time::Duration,
 }
 
 impl VulkanApp {
+    #[rustfmt::skip]
     pub fn new(window: &winit::window::Window) -> VulkanApp {
         let entry = ash::Entry::new().unwrap();
 
@@ -80,36 +81,33 @@ impl VulkanApp {
 
         let instance = crate::instance::create_instance(&entry);
         let (debug_utils, debug_messenger) = crate::instance::create_debug_utils(&entry, &instance);
+    
         let surface = crate::surface::Surface::new(&entry, &instance, window);
         let (physical_device, queue_families) = crate::physical_device::get_physical_device(&instance, &surface);
         let memory_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
         let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
         let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics_family.unwrap(), 0) };
         let present_queue = unsafe { device.get_device_queue(queue_families.present_family.unwrap(), 0) };
+    
         let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
         let render_pass = create_render_pass(&device, swapchain.format);
+    
         let desc_set_layout = create_descriptor_set_layout(&device);
         let command_pool = crate::utility::create_command_pool(&device, queue_families.graphics_family.unwrap());
+    
         let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue);
         let (index_buffer, index_buffer_memory) = create_index_buffer(&device, &memory_properties, command_pool, graphics_queue);
+    
         let (uniform_buffers, uniform_buffers_memory) = create_uniform_buffers(&device, &memory_properties, swapchain.length);
         let descriptor_pool = create_descriptor_pool(&device, swapchain.length);
         let descriptor_sets = create_descriptor_sets(&device, descriptor_pool, desc_set_layout, swapchain.length, &uniform_buffers);
+    
         let framebuffers = create_framebuffers(&device, render_pass, &swapchain.image_views, &swapchain.extent);
-        let desc_set_layouts = vec![desc_set_layout];
+
+        let desc_set_layouts = vec![desc_set_layout];    
         let (pipeline_layout, graphics_pipeline) = create_graphics_pipeline(&device, render_pass, swapchain.extent, &desc_set_layouts);
-        let command_buffers = create_command_buffers(
-            &device,
-            command_pool,
-            graphics_pipeline,
-            &framebuffers,
-            render_pass,
-            swapchain.extent,
-            vertex_buffer,
-            index_buffer,
-            pipeline_layout,
-            &descriptor_sets,
-        );
+        let command_buffers = create_command_buffers(&device, command_pool, graphics_pipeline, &framebuffers, render_pass, swapchain.extent, vertex_buffer, index_buffer, pipeline_layout, &descriptor_sets);
+    
         let presenter = crate::presenter::Presenter::new(&device, swapchain.length);
 
         use cgmath::SquareMatrix;
@@ -117,8 +115,8 @@ impl VulkanApp {
         let matrices = WVPMatrices {
             world: cgmath::Matrix4::<f32>::identity(),
             view: cgmath::Matrix4::look_at(
-                cgmath::Point3::new(0.0, 0.0, 2.0), // eye
-                cgmath::Point3::new(0.0, 0.0, 0.0), // point
+                cgmath::Point3::new(0.0, 0.0, 2.0),  // eye
+                cgmath::Point3::new(0.0, 0.0, 0.0),  // point
                 cgmath::Vector3::new(0.0, 1.0, 0.0), // up
             ),
             projection: cgmath::perspective(
@@ -692,11 +690,7 @@ fn create_command_buffers(
             flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
         };
 
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.2, 1.0],
-            },
-        }];
+        let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.2, 1.0] } }];
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
