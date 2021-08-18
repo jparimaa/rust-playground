@@ -46,6 +46,8 @@ pub struct VulkanApp {
     desc_set_layout: vk::DescriptorSetLayout,
     framebuffers: Vec<vk::Framebuffer>,
 
+    texture: crate::texture::Texture,
+
     vertex_buffer: vk::Buffer,
     vertex_buffer_memory: vk::DeviceMemory,
 
@@ -95,6 +97,8 @@ impl VulkanApp {
         let desc_set_layout = create_descriptor_set_layout(&device);
         let command_pool = crate::utility::create_command_pool(&device, queue_families.graphics_family.unwrap());
     
+        let texture = crate::texture::Texture::new(&device, command_pool, graphics_queue, &memory_properties, &std::path::Path::new("assets/checker.png"));
+
         let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue);
         let (index_buffer, index_buffer_memory) = create_index_buffer(&device, &memory_properties, command_pool, graphics_queue);
     
@@ -140,6 +144,7 @@ impl VulkanApp {
             swapchain,
             render_pass,
             desc_set_layout,
+            texture,
             vertex_buffer,
             vertex_buffer_memory,
             index_buffer,
@@ -220,6 +225,7 @@ impl Drop for VulkanApp {
             self.device.free_memory(self.index_buffer_memory, None);
             self.device.destroy_buffer(self.vertex_buffer, None);
             self.device.free_memory(self.vertex_buffer_memory, None);
+            self.texture.destroy(&self.device);
             self.device.destroy_descriptor_set_layout(self.desc_set_layout, None);
             self.device.destroy_render_pass(self.render_pass, None);
             self.swapchain.destroy(&self.device);
@@ -720,7 +726,7 @@ fn create_command_buffers(
             device.cmd_bind_descriptor_sets(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                pipeline_layout,
+                pipeline_layout, 
                 0,
                 &descriptor_set,
                 &[],

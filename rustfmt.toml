@@ -1,3 +1,4 @@
 max_width = 140
 force_multiline_blocks = true
 struct_lit_width = 60
+blank_lines_upper_bound = 2

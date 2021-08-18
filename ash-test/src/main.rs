@@ -8,6 +8,8 @@ mod surface;
 mod swapchain;
 mod utility;
 mod vulkan_app;
+mod texture;
+mod image_file;
 
 fn init_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window::Window {
     winit::window::WindowBuilder::new()
