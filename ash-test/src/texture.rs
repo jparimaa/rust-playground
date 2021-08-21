@@ -4,6 +4,8 @@ use ash::vk;
 pub struct Texture {
     image: vk::Image,
     memory: vk::DeviceMemory,
+    device: ash::Device,
+    image_views: std::collections::HashMap<vk::Format, vk::ImageView>,
 }
 
 impl Texture {
@@ -69,11 +71,56 @@ impl Texture {
             device.free_memory(staging_buffer_memory, None);
         }
 
-        Texture { image, memory }
+        Texture {
+            image,
+            memory,
+            device: device.clone(),
+            image_views: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn get_or_create_image_view(&mut self, format: vk::Format) -> vk::ImageView {
+        if let Some(result) = self.image_views.get(&format) {
+            return *result;
+        }
+
+        let imageview_create_info = vk::ImageViewCreateInfo {
+            s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::ImageViewCreateFlags::empty(),
+            view_type: vk::ImageViewType::TYPE_2D,
+            format,
+            components: vk::ComponentMapping {
+                r: vk::ComponentSwizzle::IDENTITY,
+                g: vk::ComponentSwizzle::IDENTITY,
+                b: vk::ComponentSwizzle::IDENTITY,
+                a: vk::ComponentSwizzle::IDENTITY,
+            },
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image: self.image,
+        };
+
+        let image_view = unsafe {
+            self.device
+                .create_image_view(&imageview_create_info, None)
+                .expect("Failed to create image view")
+        };
+
+        self.image_views.insert(format, image_view);
+        image_view
     }
 
     pub fn destroy(&self, device: &ash::Device) {
         unsafe {
+            for (_format, &image_view) in &self.image_views {
+                self.device.destroy_image_view(image_view, None);
+            }
             device.destroy_image(self.image, None);
             device.free_memory(self.memory, None);
         }

@@ -97,7 +97,8 @@ impl VulkanApp {
         let desc_set_layout = create_descriptor_set_layout(&device);
         let command_pool = crate::utility::create_command_pool(&device, queue_families.graphics_family.unwrap());
     
-        let texture = crate::texture::Texture::new(&device, command_pool, graphics_queue, &memory_properties, &std::path::Path::new("assets/checker.png"));
+        let mut texture = crate::texture::Texture::new(&device, command_pool, graphics_queue, &memory_properties, &std::path::Path::new("assets/checker.png"));
+        let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM);
 
         let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue);
         let (index_buffer, index_buffer_memory) = create_index_buffer(&device, &memory_properties, command_pool, graphics_queue);
