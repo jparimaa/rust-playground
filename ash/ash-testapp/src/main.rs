@@ -1,15 +1,13 @@
-mod constants;
-mod device;
-mod instance;
-mod physical_device;
-mod pipeline;
-mod presenter;
-mod surface;
-mod swapchain;
-mod utility;
 mod vulkan_app;
-mod texture;
-mod image_file;
+mod constants;
+
+fn main() {
+    let event_loop = winit::event_loop::EventLoop::new();
+    let window = init_window(&event_loop);
+    let vulkan_app = vulkan_app::VulkanApp::new(&window);
+
+    main_loop(event_loop, window, vulkan_app);
+}
 
 fn init_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window::Window {
     winit::window::WindowBuilder::new()
@@ -49,12 +47,4 @@ fn main_loop(
         }
         _ => {}
     })
-}
-
-fn main() {
-    let event_loop = winit::event_loop::EventLoop::new();
-    let window = init_window(&event_loop);
-    let vulkan_app = vulkan_app::VulkanApp::new(&window);
-
-    main_loop(event_loop, window, vulkan_app);
 }

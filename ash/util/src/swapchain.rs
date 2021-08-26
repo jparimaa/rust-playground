@@ -7,10 +7,7 @@ pub struct SwapchainSupportInfo {
     pub present_modes: Vec<vk::PresentModeKHR>,
 }
 
-pub fn get_swapchain_support_info(
-    physical_device: vk::PhysicalDevice,
-    surface: &crate::surface::Surface,
-) -> SwapchainSupportInfo {
+pub fn get_swapchain_support_info(physical_device: vk::PhysicalDevice, surface: &crate::surface::Surface) -> SwapchainSupportInfo {
     unsafe {
         let capabilities = surface
             .loader
@@ -25,7 +22,11 @@ pub fn get_swapchain_support_info(
             .get_physical_device_surface_present_modes(physical_device, surface.vk_surface_khr)
             .expect("Failed to query for surface present mode");
 
-        SwapchainSupportInfo { capabilities, formats, present_modes }
+        SwapchainSupportInfo {
+            capabilities,
+            formats,
+            present_modes,
+        }
     }
 }
 
@@ -45,11 +46,13 @@ impl Swapchain {
         device: &ash::Device,
         physical_device: vk::PhysicalDevice,
         surface: &crate::surface::Surface,
+        window_width: u32,
+        window_height: u32,
     ) -> Swapchain {
         let swapchain_support_info = get_swapchain_support_info(physical_device, surface);
         let surface_format = choose_swapchain_format(&swapchain_support_info.formats);
         let present_mode = choose_swapchain_present_mode(&swapchain_support_info.present_modes);
-        let extent = choose_swapchain_extent(&swapchain_support_info.capabilities);
+        let extent = choose_swapchain_extent(&swapchain_support_info.capabilities, window_width, window_height);
 
         let image_count = std::cmp::min(
             swapchain_support_info.capabilities.max_image_count,
@@ -117,9 +120,7 @@ impl Swapchain {
 
 fn choose_swapchain_format(available_formats: &Vec<vk::SurfaceFormatKHR>) -> vk::SurfaceFormatKHR {
     for available_format in available_formats {
-        if available_format.format == vk::Format::B8G8R8A8_SRGB
-            && available_format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
-        {
+        if available_format.format == vk::Format::B8G8R8A8_SRGB && available_format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR {
             return available_format.clone();
         }
     }
@@ -137,18 +138,18 @@ fn choose_swapchain_present_mode(available_present_modes: &Vec<vk::PresentModeKH
     vk::PresentModeKHR::FIFO
 }
 
-fn choose_swapchain_extent(capabilities: &vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
+fn choose_swapchain_extent(capabilities: &vk::SurfaceCapabilitiesKHR, window_width: u32, window_height: u32) -> vk::Extent2D {
     if capabilities.current_extent.width != u32::max_value() {
         capabilities.current_extent
     } else {
         vk::Extent2D {
             width: num::clamp(
-                crate::constants::WINDOW_WIDTH,
+                window_width,
                 capabilities.min_image_extent.width,
                 capabilities.max_image_extent.width,
             ),
             height: num::clamp(
-                crate::constants::WINDOW_HEIGHT,
+                window_height,
                 capabilities.min_image_extent.height,
                 capabilities.max_image_extent.height,
             ),

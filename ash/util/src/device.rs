@@ -4,7 +4,7 @@ use ash::vk;
 pub fn create_logical_device(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
-    indices: &crate::utility::QueueFamilyIndices,
+    indices: &crate::common::QueueFamilyIndices,
 ) -> ash::Device {
     use std::collections::HashSet;
     let mut unique_queue_indices = HashSet::new();

@@ -70,7 +70,7 @@ pub fn is_validation_layer_supported(entry: &ash::Entry) -> bool {
     let validation_layer_name = String::from("VK_LAYER_KHRONOS_validation");
     let mut layer_found = false;
     for layer_property in layer_properties.iter() {
-        let layer_name = crate::utility::c_char_to_string(&layer_property.layer_name);
+        let layer_name = c_char_to_string(&layer_property.layer_name);
         if *validation_layer_name == layer_name {
             layer_found = true;
             break;
@@ -93,7 +93,7 @@ pub fn are_device_extensions_supported(
 
     let available_extension_names = available_extensions
         .iter()
-        .map(|ext| crate::utility::c_char_to_string(&ext.extension_name))
+        .map(|ext| c_char_to_string(&ext.extension_name))
         .collect::<std::vec::Vec<String>>();
 
     let mut required_extensions = extensions.clone();

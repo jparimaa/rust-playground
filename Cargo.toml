@@ -3,6 +3,7 @@
 members = [
     "vulkano-test",
     "ecs/engine",
-    "ecs/testapp",
-    "ash-test",
+    "ecs/ecs-testapp",
+    "ash/util",
+    "ash/ash-testapp"
 ]

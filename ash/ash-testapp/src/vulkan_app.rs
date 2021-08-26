@@ -50,20 +50,20 @@ pub struct VulkanApp {
     debug_utils: ash::extensions::ext::DebugUtils,
     debug_messenger: vk::DebugUtilsMessengerEXT,
 
-    surface: crate::surface::Surface,
+    surface: util::surface::Surface,
     _physical_device: vk::PhysicalDevice,
     device: ash::Device,
     graphics_queue: ash::vk::Queue,
     present_queue: ash::vk::Queue,
 
-    swapchain: crate::swapchain::Swapchain,
+    swapchain: util::swapchain::Swapchain,
     render_pass: vk::RenderPass,
 
     transform_desc_set_layout: vk::DescriptorSetLayout,
     texture_desc_set_layout: vk::DescriptorSetLayout,
     framebuffers: Vec<vk::Framebuffer>,
 
-    texture: crate::texture::Texture,
+    texture: util::texture::Texture,
     sampler: vk::Sampler,
 
     vertex_buffer: vk::Buffer,
@@ -85,7 +85,7 @@ pub struct VulkanApp {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
 
-    presenter: crate::presenter::Presenter,
+    presenter: util::presenter::Presenter,
     time_instant: std::time::Instant,
     total_duration: std::time::Duration,
 }
@@ -94,24 +94,24 @@ impl VulkanApp {
     pub fn new(window: &winit::window::Window) -> VulkanApp {
         let entry = ash::Entry::new().unwrap();
 
-        if !crate::utility::is_validation_layer_supported(&entry) {
+        if !util::common::is_validation_layer_supported(&entry) {
             panic!("Validation layers not supported");
         }
 
-        let instance = crate::instance::create_instance(&entry);
-        let (debug_utils, debug_messenger) = crate::instance::create_debug_utils(&entry, &instance);
-        let surface = crate::surface::Surface::new(&entry, &instance, window);
-        let (physical_device, queue_families) = crate::physical_device::get_physical_device(&instance, &surface);
+        let instance = util::instance::create_instance(&entry);
+        let (debug_utils, debug_messenger) = util::instance::create_debug_utils(&entry, &instance);
+        let surface = util::surface::Surface::new(&entry, &instance, window);
+        let (physical_device, queue_families) = util::physical_device::get_physical_device(&instance, &surface);
         let memory_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
-        let device = crate::device::create_logical_device(&instance, physical_device, &queue_families);
+        let device = util::device::create_logical_device(&instance, physical_device, &queue_families);
         let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics_family.unwrap(), 0) };
         let present_queue = unsafe { device.get_device_queue(queue_families.present_family.unwrap(), 0) };
-        let swapchain = crate::swapchain::Swapchain::new(&instance, &device, physical_device, &surface);
+        let swapchain = util::swapchain::Swapchain::new(&instance, &device, physical_device, &surface, crate::constants::WINDOW_WIDTH, crate::constants::WINDOW_HEIGHT);
         //
         let render_pass = create_render_pass(&device, swapchain.format);
-        let command_pool = crate::utility::create_command_pool(&device, queue_families.graphics_family.unwrap());
+        let command_pool = util::common::create_command_pool(&device, queue_families.graphics_family.unwrap());
         //
-        let mut texture = crate::texture::Texture::new(
+        let mut texture = util::texture::Texture::new(
             &device,
             command_pool,
             graphics_queue,
@@ -154,7 +154,7 @@ impl VulkanApp {
             &transform_desc_sets,
             texture_desc_set
         );
-        let presenter = crate::presenter::Presenter::new(&device, swapchain.length);
+        let presenter = util::presenter::Presenter::new(&device, swapchain.length);
 
         use cgmath::SquareMatrix;
 
@@ -380,7 +380,7 @@ fn create_vertex_buffer(
 ) -> (vk::Buffer, vk::DeviceMemory) {
     let buffer_size = std::mem::size_of_val(&VERTICES_DATA) as vk::DeviceSize;
 
-    let (staging_buffer, staging_buffer_memory) = crate::utility::create_buffer(
+    let (staging_buffer, staging_buffer_memory) = util::common::create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
@@ -398,7 +398,7 @@ fn create_vertex_buffer(
         device.unmap_memory(staging_buffer_memory);
     }
 
-    let (vertex_buffer, vertex_buffer_memory) = crate::utility::create_buffer(
+    let (vertex_buffer, vertex_buffer_memory) = util::common::create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
@@ -406,7 +406,7 @@ fn create_vertex_buffer(
         &physical_device_memory_properties,
     );
 
-    crate::utility::copy_buffer(device, submit_queue, command_pool, staging_buffer, vertex_buffer, buffer_size);
+    util::common::copy_buffer(device, submit_queue, command_pool, staging_buffer, vertex_buffer, buffer_size);
 
     unsafe {
         device.destroy_buffer(staging_buffer, None);
@@ -424,7 +424,7 @@ fn create_index_buffer(
 ) -> (vk::Buffer, vk::DeviceMemory) {
     let buffer_size = std::mem::size_of_val(&INDICES_DATA) as vk::DeviceSize;
 
-    let (staging_buffer, staging_buffer_memory) = crate::utility::create_buffer(
+    let (staging_buffer, staging_buffer_memory) = util::common::create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
@@ -442,7 +442,7 @@ fn create_index_buffer(
         device.unmap_memory(staging_buffer_memory);
     }
 
-    let (index_buffer, index_buffer_memory) = crate::utility::create_buffer(
+    let (index_buffer, index_buffer_memory) = util::common::create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
@@ -450,7 +450,7 @@ fn create_index_buffer(
         &physical_device_memory_properties,
     );
 
-    crate::utility::copy_buffer(device, submit_queue, command_pool, staging_buffer, index_buffer, buffer_size);
+    util::common::copy_buffer(device, submit_queue, command_pool, staging_buffer, index_buffer, buffer_size);
 
     unsafe {
         device.destroy_buffer(staging_buffer, None);
@@ -471,7 +471,7 @@ fn create_uniform_buffers(
     let mut uniform_buffers_memory = vec![];
 
     for _ in 0..num_buffers {
-        let (uniform_buffer, uniform_buffer_memory) = crate::utility::create_buffer(
+        let (uniform_buffer, uniform_buffer_memory) = util::common::create_buffer(
             device,
             buffer_size as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -620,7 +620,7 @@ fn create_texture_desc_set(
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     sampler: vk::Sampler,
-    texture: &mut crate::texture::Texture,
+    texture: &mut util::texture::Texture,
 ) -> vk::DescriptorSet {
     let layouts: Vec<vk::DescriptorSetLayout> = vec![descriptor_set_layout];
 
@@ -706,11 +706,11 @@ fn create_graphics_pipeline(
     desc_set_layouts: &Vec<vk::DescriptorSetLayout>,
 ) -> (vk::PipelineLayout, vk::Pipeline) {
     use std::path::Path;
-    let vertex_shader_code = crate::utility::read_file(Path::new("ash-test/shader_bin/vert.spv"));
-    let fragment_shader_code = crate::utility::read_file(Path::new("ash-test/shader_bin/frag.spv"));
+    let vertex_shader_code = util::common::read_file(Path::new("ash/ash-testapp/shader_bin/vert.spv"));
+    let fragment_shader_code = util::common::read_file(Path::new("ash/ash-testapp/shader_bin/frag.spv"));
 
-    let vertex_shader_module = crate::utility::create_shader_module(device, vertex_shader_code);
-    let fragment_shader_module = crate::utility::create_shader_module(device, fragment_shader_code);
+    let vertex_shader_module = util::common::create_shader_module(device, vertex_shader_code);
+    let fragment_shader_module = util::common::create_shader_module(device, fragment_shader_code);
 
     let main_function_name = std::ffi::CString::new("main").unwrap();
 
@@ -762,7 +762,7 @@ fn create_graphics_pipeline(
         },
     ];
 
-    use crate::pipeline;
+    use util::pipeline;
 
     let vertex_input_state_create_info = pipeline::get_default_vertex_input_state(&input_attributes, &input_binding);
     let vertex_input_assembly_state_info = pipeline::get_default_input_assembly_state();

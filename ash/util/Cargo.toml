@@ -1,0 +1,11 @@
+[package]
+name = "util"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+ash = "0.29.0"
+image = "0.22"
+winit = "0.20.0"
+winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }
+num = "0.2"

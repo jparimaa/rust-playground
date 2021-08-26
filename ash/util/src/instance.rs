@@ -1,6 +1,10 @@
 use ash::version::EntryV1_0;
 use ash::vk;
 
+const APPLICATION_VERSION: u32 = ash::vk_make_version!(1, 0, 0);
+const ENGINE_VERSION: u32 = ash::vk_make_version!(1, 0, 0);
+const API_VERSION: u32 = ash::vk_make_version!(1, 2, 176);
+
 unsafe extern "system" fn debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -51,10 +55,10 @@ pub fn create_instance(entry: &ash::Entry) -> ash::Instance {
         s_type: vk::StructureType::APPLICATION_INFO,
         p_next: std::ptr::null(),
         p_application_name: app_name.as_ptr(),
-        application_version: crate::constants::APPLICATION_VERSION,
+        application_version: APPLICATION_VERSION,
         p_engine_name: engine_name.as_ptr(),
-        engine_version: crate::constants::ENGINE_VERSION,
-        api_version: crate::constants::API_VERSION,
+        engine_version: ENGINE_VERSION,
+        api_version: API_VERSION,
     };
 
     let debug_utils_create_info = get_debug_utils_messenger_create_info();
@@ -83,19 +87,12 @@ pub fn create_instance(entry: &ash::Entry) -> ash::Instance {
         enabled_extension_count: extension_names.len() as u32,
     };
 
-    let instance: ash::Instance = unsafe {
-        entry
-            .create_instance(&create_info, None)
-            .expect("Failed to create instance!")
-    };
+    let instance: ash::Instance = unsafe { entry.create_instance(&create_info, None).expect("Failed to create instance!") };
 
     instance
 }
 
-pub fn create_debug_utils(
-    entry: &ash::Entry,
-    instance: &ash::Instance,
-) -> (ash::extensions::ext::DebugUtils, vk::DebugUtilsMessengerEXT) {
+pub fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance) -> (ash::extensions::ext::DebugUtils, vk::DebugUtilsMessengerEXT) {
     let debug_utils = ash::extensions::ext::DebugUtils::new(entry, instance);
     let create_info = get_debug_utils_messenger_create_info();
     let utils_messenger = unsafe {
