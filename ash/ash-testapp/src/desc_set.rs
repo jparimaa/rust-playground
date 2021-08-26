@@ -136,7 +136,7 @@ pub fn create_texture_desc_set(
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     sampler: vk::Sampler,
-    texture: &mut util::texture::Texture,
+    texture: &mut util::image::Image,
 ) -> vk::DescriptorSet {
     let layouts: Vec<vk::DescriptorSetLayout> = vec![descriptor_set_layout];
 
@@ -156,7 +156,7 @@ pub fn create_texture_desc_set(
 
     let descriptor_image_info = [vk::DescriptorImageInfo {
         sampler: sampler,
-        image_view: texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM),
+        image_view: texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR),
         image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     }];
 

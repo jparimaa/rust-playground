@@ -2,6 +2,29 @@ use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::RenderPass {
+    let color_attachment_ref = vk::AttachmentReference {
+        attachment: 0,
+        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    let depth_attachment_ref = vk::AttachmentReference {
+        attachment: 1,
+        layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    let subpasses = [vk::SubpassDescription {
+        color_attachment_count: 1,
+        p_color_attachments: &color_attachment_ref,
+        p_depth_stencil_attachment: &depth_attachment_ref,
+        flags: vk::SubpassDescriptionFlags::empty(),
+        pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
+        input_attachment_count: 0,
+        p_input_attachments: std::ptr::null(),
+        p_resolve_attachments: std::ptr::null(),
+        preserve_attachment_count: 0,
+        p_preserve_attachments: std::ptr::null(),
+    }];
+
     let color_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: surface_format,
@@ -14,25 +37,19 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
         final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
     };
 
-    let color_attachment_ref = vk::AttachmentReference {
-        attachment: 0,
-        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    let depth_attachment = vk::AttachmentDescription {
+        flags: vk::AttachmentDescriptionFlags::empty(),
+        format: crate::constants::DEPTH_FORMAT,
+        samples: vk::SampleCountFlags::TYPE_1,
+        load_op: vk::AttachmentLoadOp::CLEAR,
+        store_op: vk::AttachmentStoreOp::DONT_CARE,
+        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
+        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
+        initial_layout: vk::ImageLayout::UNDEFINED,
+        final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
-    let subpasses = [vk::SubpassDescription {
-        color_attachment_count: 1,
-        p_color_attachments: &color_attachment_ref,
-        p_depth_stencil_attachment: std::ptr::null(),
-        flags: vk::SubpassDescriptionFlags::empty(),
-        pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
-        input_attachment_count: 0,
-        p_input_attachments: std::ptr::null(),
-        p_resolve_attachments: std::ptr::null(),
-        preserve_attachment_count: 0,
-        p_preserve_attachments: std::ptr::null(),
-    }];
-
-    let render_pass_attachments = [color_attachment];
+    let render_pass_attachments = [color_attachment, depth_attachment];
 
     let subpass_dependencies = [vk::SubpassDependency {
         src_subpass: vk::SUBPASS_EXTERNAL,
@@ -40,7 +57,7 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
         src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
         dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
         src_access_mask: vk::AccessFlags::empty(),
-        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::COLOR_ATTACHMENT_READ,
         dependency_flags: vk::DependencyFlags::empty(),
     }];
 
@@ -68,13 +85,14 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
 pub fn create_framebuffers(
     device: &ash::Device,
     render_pass: vk::RenderPass,
-    image_views: &Vec<vk::ImageView>,
+    color_views: &Vec<vk::ImageView>,
+    depth_view: &vk::ImageView,
     swapchain_extent: &vk::Extent2D,
 ) -> Vec<vk::Framebuffer> {
     let mut framebuffers = vec![];
 
-    for &image_view in image_views.iter() {
-        let attachments = [image_view];
+    for &color_view in color_views.iter() {
+        let attachments = [color_view, *depth_view];
 
         let framebuffer_create_info = vk::FramebufferCreateInfo {
             s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
@@ -146,7 +164,7 @@ pub fn create_graphics_pipeline(
         vk::VertexInputAttributeDescription {
             location: 0,
             binding: 0,
-            format: vk::Format::R32G32_SFLOAT,
+            format: vk::Format::R32G32B32_SFLOAT,
             offset: memoffset::offset_of!(crate::data::Vertex, pos) as u32,
         },
         vk::VertexInputAttributeDescription {

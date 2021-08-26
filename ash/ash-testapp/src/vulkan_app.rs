@@ -21,8 +21,9 @@ pub struct VulkanApp {
     transform_desc_set_layout: vk::DescriptorSetLayout,
     texture_desc_set_layout: vk::DescriptorSetLayout,
     framebuffers: Vec<vk::Framebuffer>,
+    depthbuffer: util::image::Image,
 
-    texture: util::texture::Texture,
+    texture: util::image::Image,
     sampler: vk::Sampler,
 
     vertex_buffer: crate::buffer::Buffer,
@@ -68,20 +69,29 @@ impl VulkanApp {
         );
         //
         let render_pass = crate::pipeline::create_render_pass(&device, swapchain.format);
-        let framebuffers = crate::pipeline::create_framebuffers(&device, render_pass, &swapchain.image_views, &swapchain.extent);
+        let mut depthbuffer = util::image::Image::depth_target(
+            &device,
+            crate::constants::DEPTH_FORMAT,
+            swapchain.extent.width,
+            swapchain.extent.height,
+            &memory_properties,
+        );
+        let depth_view = depthbuffer.get_or_create_image_view(crate::constants::DEPTH_FORMAT, vk::ImageAspectFlags::DEPTH);
+        let framebuffers =
+            crate::pipeline::create_framebuffers(&device, render_pass, &swapchain.image_views, &depth_view, &swapchain.extent);
         //
         let command_pool = util::command::create_command_pool(&device, queue_families.graphics_family.unwrap());
         let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics_family.unwrap(), 0) };
         let present_queue = unsafe { device.get_device_queue(queue_families.present_family.unwrap(), 0) };
         //
-        let mut texture = util::texture::Texture::new(
+        let mut texture = util::image::Image::from_file(
             &device,
             command_pool,
             graphics_queue,
             &memory_properties,
             &std::path::Path::new("assets/checker.png"),
         );
-        let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM);
+        let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
         let sampler = crate::sampler::create_sampler(&device);
         //
         use crate::buffer;
@@ -161,6 +171,7 @@ impl VulkanApp {
             descriptor_pool,
             _transform_desc_sets: transform_desc_sets,
             framebuffers,
+            depthbuffer,
             pipeline_layout,
             graphics_pipeline,
             command_pool,
@@ -216,12 +227,12 @@ impl Drop for VulkanApp {
             self.presenter.destroy(&self.device);
 
             self.device.destroy_command_pool(self.command_pool, None);
+            self.depthbuffer.destroy(&self.device);
             for &framebuffer in self.framebuffers.iter() {
                 self.device.destroy_framebuffer(framebuffer, None);
             }
             self.device.destroy_pipeline(self.graphics_pipeline, None);
             self.device.destroy_pipeline_layout(self.pipeline_layout, None);
-            
             self.device.destroy_descriptor_pool(self.descriptor_pool, None);
             for i in 0..self.uniform_buffers.len() {
                 self.uniform_buffers[i].destroy();
@@ -277,11 +288,16 @@ fn create_command_buffers(
             flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
         };
 
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.2, 1.0],
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.2, 1.0],
+                },
             },
-        }];
+            vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
+            },
+        ];
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,

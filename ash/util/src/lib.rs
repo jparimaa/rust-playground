@@ -8,6 +8,6 @@ pub mod pipeline;
 pub mod presenter;
 pub mod surface;
 pub mod swapchain;
-pub mod texture;
+pub mod image;
 pub mod command;
 pub mod queue_family;

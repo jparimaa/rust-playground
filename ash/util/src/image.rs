@@ -1,31 +1,54 @@
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-pub struct Texture {
+pub struct Image {
     image: vk::Image,
     memory: vk::DeviceMemory,
     device: ash::Device,
     image_views: std::collections::HashMap<vk::Format, vk::ImageView>,
 }
 
-impl Texture {
-    pub fn new(
+impl Image {
+    pub fn from_file(
         device: &ash::Device,
         command_pool: vk::CommandPool,
         submit_queue: vk::Queue,
-        device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
         image_path: &std::path::Path,
-    ) -> Texture {
+    ) -> Image {
         let image_file = crate::image_file::ImageFile::new(image_path);
 
-        let (image, memory) = create_image(device, &image_file, device_memory_properties);
+        let image_create_info = vk::ImageCreateInfo {
+            s_type: vk::StructureType::IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::ImageCreateFlags::empty(),
+            image_type: vk::ImageType::TYPE_2D,
+            format: vk::Format::R8G8B8A8_UNORM,
+            extent: vk::Extent3D {
+                width: image_file.width,
+                height: image_file.height,
+                depth: 1,
+            },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: vk::ImageLayout::UNDEFINED,
+        };
+        let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
+
+        let memory = allocate_image(device, image, memory_properties);
 
         let (staging_buffer, staging_buffer_memory) = crate::memory::create_buffer(
             device,
             image_file.size,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            device_memory_properties,
+            memory_properties,
         );
 
         unsafe {
@@ -71,7 +94,42 @@ impl Texture {
             device.free_memory(staging_buffer_memory, None);
         }
 
-        Texture {
+        Image {
+            image,
+            memory,
+            device: device.clone(),
+            image_views: std::collections::HashMap::new(),
+        }
+    }
+    pub fn depth_target(
+        device: &ash::Device,
+        format: vk::Format,
+        width: u32,
+        height: u32,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    ) -> Image {
+        let image_create_info = vk::ImageCreateInfo {
+            s_type: vk::StructureType::IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::ImageCreateFlags::empty(),
+            image_type: vk::ImageType::TYPE_2D,
+            format,
+            extent: vk::Extent3D { width, height, depth: 1 },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: vk::ImageLayout::UNDEFINED,
+        };
+        let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
+
+        let memory = allocate_image(device, image, memory_properties);
+
+        Image {
             image,
             memory,
             device: device.clone(),
@@ -79,7 +137,7 @@ impl Texture {
         }
     }
 
-    pub fn get_or_create_image_view(&mut self, format: vk::Format) -> vk::ImageView {
+    pub fn get_or_create_image_view(&mut self, format: vk::Format, aspect_mask: vk::ImageAspectFlags) -> vk::ImageView {
         if let Some(result) = self.image_views.get(&format) {
             return *result;
         }
@@ -97,7 +155,7 @@ impl Texture {
                 a: vk::ComponentSwizzle::IDENTITY,
             },
             subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask,
                 base_mip_level: 0,
                 level_count: 1,
                 base_array_layer: 0,
@@ -127,41 +185,17 @@ impl Texture {
     }
 }
 
-fn create_image(
+fn allocate_image(
     device: &ash::Device,
-    image_file: &crate::image_file::ImageFile,
-    device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-) -> (vk::Image, vk::DeviceMemory) {
-    let image_create_info = vk::ImageCreateInfo {
-        s_type: vk::StructureType::IMAGE_CREATE_INFO,
-        p_next: std::ptr::null(),
-        flags: vk::ImageCreateFlags::empty(),
-        image_type: vk::ImageType::TYPE_2D,
-        format: vk::Format::R8G8B8A8_UNORM,
-        extent: vk::Extent3D {
-            width: image_file.width,
-            height: image_file.height,
-            depth: 1,
-        },
-        mip_levels: 1,
-        array_layers: 1,
-        samples: vk::SampleCountFlags::TYPE_1,
-        tiling: vk::ImageTiling::OPTIMAL,
-        usage: vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
-        sharing_mode: vk::SharingMode::EXCLUSIVE,
-        queue_family_index_count: 0,
-        p_queue_family_indices: std::ptr::null(),
-        initial_layout: vk::ImageLayout::UNDEFINED,
-    };
-
-    let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
-
+    image: vk::Image,
+    memory_properties: &vk::PhysicalDeviceMemoryProperties,
+) -> vk::DeviceMemory {
     let image_memory_requirement = unsafe { device.get_image_memory_requirements(image) };
 
     let memory_type_index = crate::memory::find_memory_type(
         image_memory_requirement.memory_type_bits,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        device_memory_properties,
+        memory_properties,
     );
 
     let memory_allocate_info = vk::MemoryAllocateInfo {
@@ -174,12 +208,12 @@ fn create_image(
     let memory = unsafe {
         device
             .allocate_memory(&memory_allocate_info, None)
-            .expect("Failed to allocate texture image memory")
+            .expect("Failed to allocate image memory")
     };
 
     unsafe {
-        device.bind_image_memory(image, memory, 0).expect("Failed to bind Image Memmory!");
+        device.bind_image_memory(image, memory, 0).expect("Failed to bind image memmory");
     }
 
-    (image, memory)
+    memory
 }
