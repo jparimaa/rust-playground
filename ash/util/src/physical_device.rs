@@ -4,7 +4,7 @@ use ash::vk;
 pub fn get_physical_device(
     instance: &ash::Instance,
     surface: &crate::surface::Surface,
-) -> (vk::PhysicalDevice, crate::common::QueueFamilyIndices) {
+) -> (vk::PhysicalDevice, crate::queue_family::QueueFamilyIndices) {
     let physical_devices = unsafe {
         instance
             .enumerate_physical_devices()
@@ -17,11 +17,11 @@ pub fn get_physical_device(
         .cloned()
         .collect::<HashSet<String>>();
 
-    use crate::{swapchain, common};
+    use crate::swapchain;
     for physical_device in physical_devices {
-        let indices = common::get_queue_family_indices(instance, physical_device, surface);
+        let indices = crate::queue_family::get_queue_family_indices(instance, physical_device, surface);
         let extensions_supported =
-            common::are_device_extensions_supported(instance, physical_device, &required_extensions);
+            crate::common::are_device_extensions_supported(instance, physical_device, &required_extensions);
         let swapchain_supported =
             is_swapchain_supported(swapchain::get_swapchain_support_info(physical_device, surface));
 

@@ -20,7 +20,7 @@ impl Texture {
 
         let (image, memory) = create_image(device, &image_file, device_memory_properties);
 
-        let (staging_buffer, staging_buffer_memory) = crate::common::create_buffer(
+        let (staging_buffer, staging_buffer_memory) = crate::memory::create_buffer(
             device,
             image_file.size,
             vk::BufferUsageFlags::TRANSFER_SRC,
@@ -36,7 +36,7 @@ impl Texture {
             device.unmap_memory(staging_buffer_memory);
         }
 
-        crate::common::transition_image_layout(
+        crate::memory::transition_image_layout(
             device,
             command_pool,
             submit_queue,
@@ -46,7 +46,7 @@ impl Texture {
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         );
 
-        crate::common::copy_buffer_to_image(
+        crate::memory::copy_buffer_to_image(
             device,
             command_pool,
             submit_queue,
@@ -56,7 +56,7 @@ impl Texture {
             image_file.height,
         );
 
-        crate::common::transition_image_layout(
+        crate::memory::transition_image_layout(
             device,
             command_pool,
             submit_queue,
@@ -158,7 +158,7 @@ fn create_image(
 
     let image_memory_requirement = unsafe { device.get_image_memory_requirements(image) };
 
-    let memory_type_index = crate::common::find_memory_type(
+    let memory_type_index = crate::memory::find_memory_type(
         image_memory_requirement.memory_type_bits,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
         device_memory_properties,
