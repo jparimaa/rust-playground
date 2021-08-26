@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "vulkano-test",
+    "vulkano",
     "ecs/engine",
     "ecs/ecs-testapp",
     "ash/util",
