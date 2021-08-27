@@ -9,3 +9,4 @@ image = "0.22"
 winit = "0.20.0"
 winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }
 num = "0.2"
+tobj = "0.1.10"

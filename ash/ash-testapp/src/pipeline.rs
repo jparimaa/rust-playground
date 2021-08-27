@@ -156,7 +156,7 @@ pub fn create_graphics_pipeline(
 
     let input_binding = vec![vk::VertexInputBindingDescription {
         binding: 0,
-        stride: std::mem::size_of::<crate::data::Vertex>() as u32,
+        stride: std::mem::size_of::<util::obj_model::Vertex>() as u32,
         input_rate: vk::VertexInputRate::VERTEX,
     }];
 
@@ -164,20 +164,14 @@ pub fn create_graphics_pipeline(
         vk::VertexInputAttributeDescription {
             location: 0,
             binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: memoffset::offset_of!(crate::data::Vertex, pos) as u32,
+            format: vk::Format::R32G32B32A32_SFLOAT,
+            offset: memoffset::offset_of!(util::obj_model::Vertex, pos) as u32,
         },
         vk::VertexInputAttributeDescription {
             binding: 0,
             location: 1,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: memoffset::offset_of!(crate::data::Vertex, color) as u32,
-        },
-        vk::VertexInputAttributeDescription {
-            binding: 0,
-            location: 2,
             format: vk::Format::R32G32_SFLOAT,
-            offset: memoffset::offset_of!(crate::data::Vertex, tex_coord) as u32,
+            offset: memoffset::offset_of!(util::obj_model::Vertex, tex_coord) as u32,
         },
     ];
 

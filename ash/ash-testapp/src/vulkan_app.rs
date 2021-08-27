@@ -94,9 +94,11 @@ impl VulkanApp {
         let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
         let sampler = crate::sampler::create_sampler(&device);
         //
+        let model = util::obj_model::ObjModel::new(&std::path::Path::new("assets/room.obj"));
+        //
         use crate::buffer;
-        let vertex_buffer = buffer::create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue);
-        let index_buffer = buffer::create_index_buffer(&device, &memory_properties, command_pool, graphics_queue);
+        let vertex_buffer = buffer::create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue, &model.meshes[0]);
+        let index_buffer = buffer::create_index_buffer(&device, &memory_properties, command_pool, graphics_queue, &model.meshes[0]);
         let uniform_buffers = buffer::create_uniform_buffers(&device, &memory_properties, swapchain.length);
         //
         use crate::desc_set;
@@ -125,6 +127,7 @@ impl VulkanApp {
             swapchain.extent,
             &vertex_buffer,
             &index_buffer,
+            model.meshes[0].indices.len() as u32,
             pipeline_layout,
             &transform_desc_sets,
             texture_desc_set,
@@ -166,7 +169,7 @@ impl VulkanApp {
             sampler,
             vertex_buffer,
             index_buffer,
-            ubo_data: matrices,
+            ubo_data: matrices,            
             uniform_buffers,
             descriptor_pool,
             _transform_desc_sets: transform_desc_sets,
@@ -262,6 +265,7 @@ fn create_command_buffers(
     swapchain_extent: vk::Extent2D,
     vertex_buffer: &crate::buffer::Buffer,
     index_buffer: &crate::buffer::Buffer,
+    num_indices: u32,
     pipeline_layout: vk::PipelineLayout,
     transform_desc_sets: &Vec<vk::DescriptorSet>,
     texture_desc_set: vk::DescriptorSet,
@@ -332,7 +336,7 @@ fn create_command_buffers(
                 &transform_desc_set,
                 &[],
             );
-            device.cmd_draw_indexed(command_buffer, crate::data::INDICES_DATA.len() as u32, 1, 0, 0, 0);
+            device.cmd_draw_indexed(command_buffer, num_indices, 1, 0, 0, 0);
             device.cmd_end_render_pass(command_buffer);
             device.end_command_buffer(command_buffer).expect("Failed to end command buffer");
         }
