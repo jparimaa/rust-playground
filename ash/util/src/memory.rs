@@ -97,6 +97,7 @@ pub fn transition_image_layout(
     _format: vk::Format,
     old_layout: vk::ImageLayout,
     new_layout: vk::ImageLayout,
+    mip_levels: u32,
 ) {
     let command_buffer = crate::command::begin_single_time_command(device, command_pool);
 
@@ -132,7 +133,7 @@ pub fn transition_image_layout(
         subresource_range: vk::ImageSubresourceRange {
             aspect_mask: vk::ImageAspectFlags::COLOR,
             base_mip_level: 0,
-            level_count: 1,
+            level_count: mip_levels,
             base_array_layer: 0,
             layer_count: 1,
         },

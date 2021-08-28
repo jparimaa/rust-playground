@@ -8,7 +8,6 @@ pub fn create_sampler(device: &ash::Device) -> vk::Sampler {
         flags: vk::SamplerCreateFlags::empty(),
         mag_filter: vk::Filter::LINEAR,
         min_filter: vk::Filter::LINEAR,
-        mipmap_mode: vk::SamplerMipmapMode::LINEAR,
         address_mode_u: vk::SamplerAddressMode::REPEAT,
         address_mode_v: vk::SamplerAddressMode::REPEAT,
         address_mode_w: vk::SamplerAddressMode::REPEAT,
@@ -17,8 +16,9 @@ pub fn create_sampler(device: &ash::Device) -> vk::Sampler {
         max_anisotropy: 16.0,
         compare_enable: vk::FALSE,
         compare_op: vk::CompareOp::ALWAYS,
+        mipmap_mode: vk::SamplerMipmapMode::LINEAR,
         min_lod: 0.0,
-        max_lod: 0.0,
+        max_lod: 1000.0,
         border_color: vk::BorderColor::INT_OPAQUE_BLACK,
         unnormalized_coordinates: vk::FALSE,
     };
