@@ -6,6 +6,7 @@ pub struct Image {
     memory: vk::DeviceMemory,
     device: ash::Device,
     image_views: std::collections::HashMap<vk::Format, vk::ImageView>,
+    mip_levels: u32,
 }
 
 impl Image {
@@ -31,11 +32,7 @@ impl Image {
             flags: vk::ImageCreateFlags::empty(),
             image_type: vk::ImageType::TYPE_2D,
             format: vk::Format::R8G8B8A8_UNORM,
-            extent: vk::Extent3D {
-                width: image_file.width,
-                height: image_file.height,
-                depth: 1,
-            },
+            extent: vk::Extent3D { width: image_file.width, height: image_file.height, depth: 1 },
             mip_levels,
             array_layers: 1,
             samples: vk::SampleCountFlags::TYPE_1,
@@ -120,6 +117,7 @@ impl Image {
             memory,
             device: device.clone(),
             image_views: std::collections::HashMap::new(),
+            mip_levels,
         }
     }
 
@@ -130,6 +128,7 @@ impl Image {
         height: u32,
         memory_properties: &vk::PhysicalDeviceMemoryProperties,
     ) -> Image {
+        let mip_levels = 1;
         let image_create_info = vk::ImageCreateInfo {
             s_type: vk::StructureType::IMAGE_CREATE_INFO,
             p_next: std::ptr::null(),
@@ -137,7 +136,7 @@ impl Image {
             image_type: vk::ImageType::TYPE_2D,
             format,
             extent: vk::Extent3D { width, height, depth: 1 },
-            mip_levels: 1,
+            mip_levels,
             array_layers: 1,
             samples: vk::SampleCountFlags::TYPE_1,
             tiling: vk::ImageTiling::OPTIMAL,
@@ -156,6 +155,7 @@ impl Image {
             memory,
             device: device.clone(),
             image_views: std::collections::HashMap::new(),
+            mip_levels,
         }
     }
 
@@ -179,7 +179,7 @@ impl Image {
             subresource_range: vk::ImageSubresourceRange {
                 aspect_mask,
                 base_mip_level: 0,
-                level_count: 1,
+                level_count: self.mip_levels,
                 base_array_layer: 0,
                 layer_count: 1,
             },
@@ -297,11 +297,7 @@ fn generate_mipmaps(
             },
             src_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D {
-                    x: mip_width,
-                    y: mip_height,
-                    z: 1,
-                },
+                vk::Offset3D { x: mip_width, y: mip_height, z: 1 },
             ],
             dst_subresource: vk::ImageSubresourceLayers {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
