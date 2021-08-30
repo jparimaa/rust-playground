@@ -1,7 +1,7 @@
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::RenderPass {
+pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format, msaa_samples: vk::SampleCountFlags) -> vk::RenderPass {
     let color_attachment_ref = vk::AttachmentReference {
         attachment: 0,
         layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
@@ -12,6 +12,11 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
         layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
+    let msaa_resolve_ref = vk::AttachmentReference {
+        attachment: 2,
+        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    };
+
     let subpasses = [vk::SubpassDescription {
         color_attachment_count: 1,
         p_color_attachments: &color_attachment_ref,
@@ -20,7 +25,7 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
         pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
         input_attachment_count: 0,
         p_input_attachments: std::ptr::null(),
-        p_resolve_attachments: std::ptr::null(),
+        p_resolve_attachments: &msaa_resolve_ref,
         preserve_attachment_count: 0,
         p_preserve_attachments: std::ptr::null(),
     }];
@@ -28,19 +33,19 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
     let color_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: surface_format,
-        samples: vk::SampleCountFlags::TYPE_1,
+        samples: msaa_samples,
         load_op: vk::AttachmentLoadOp::CLEAR,
         store_op: vk::AttachmentStoreOp::STORE,
         stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
         stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
         initial_layout: vk::ImageLayout::UNDEFINED,
-        final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+        final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
     };
 
     let depth_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: crate::constants::DEPTH_FORMAT,
-        samples: vk::SampleCountFlags::TYPE_1,
+        samples: msaa_samples,
         load_op: vk::AttachmentLoadOp::CLEAR,
         store_op: vk::AttachmentStoreOp::DONT_CARE,
         stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
@@ -49,7 +54,19 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
         final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
-    let render_pass_attachments = [color_attachment, depth_attachment];
+    let msaa_resolve_attachment = vk::AttachmentDescription {
+        flags: vk::AttachmentDescriptionFlags::empty(),
+        format: surface_format,
+        samples: vk::SampleCountFlags::TYPE_1,
+        load_op: vk::AttachmentLoadOp::DONT_CARE,
+        store_op: vk::AttachmentStoreOp::STORE,
+        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
+        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
+        initial_layout: vk::ImageLayout::UNDEFINED,
+        final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+    };
+
+    let render_pass_attachments = [color_attachment, depth_attachment, msaa_resolve_attachment];
 
     let subpass_dependencies = [vk::SubpassDependency {
         src_subpass: vk::SUBPASS_EXTERNAL,
@@ -85,14 +102,15 @@ pub fn create_render_pass(device: &ash::Device, surface_format: vk::Format) -> v
 pub fn create_framebuffers(
     device: &ash::Device,
     render_pass: vk::RenderPass,
-    color_views: &Vec<vk::ImageView>,
+    swapchain_views: &Vec<vk::ImageView>,
+    color_view: &vk::ImageView,
     depth_view: &vk::ImageView,
     swapchain_extent: &vk::Extent2D,
 ) -> Vec<vk::Framebuffer> {
     let mut framebuffers = vec![];
 
-    for &color_view in color_views.iter() {
-        let attachments = [color_view, *depth_view];
+    for &swaphain_view in swapchain_views.iter() {
+        let attachments = [*color_view, *depth_view, swaphain_view];
 
         let framebuffer_create_info = vk::FramebufferCreateInfo {
             s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
@@ -123,6 +141,7 @@ pub fn create_graphics_pipeline(
     render_pass: vk::RenderPass,
     swapchain_extent: vk::Extent2D,
     desc_set_layouts: &Vec<vk::DescriptorSetLayout>,
+    msaa_samples: vk::SampleCountFlags,
 ) -> (vk::PipelineLayout, vk::Pipeline) {
     use std::path::Path;
     let vertex_shader_code = util::common::read_file(Path::new("ash/ash-testapp/shader_bin/vert.spv"));
@@ -183,7 +202,7 @@ pub fn create_graphics_pipeline(
     let scissors = pipeline::get_default_scissors(swapchain_extent);
     let viewport_state_create_info = pipeline::get_default_viewport_state(&viewports, &scissors);
     let rasterization_statue_create_info = pipeline::get_default_rasterization_state();
-    let multisample_state_create_info = pipeline::get_default_multisample_state();
+    let multisample_state_create_info = pipeline::get_default_multisample_state(msaa_samples);
     let depth_state_create_info = pipeline::get_default_depth_stencil_state();
     let color_blend_attachments = pipeline::get_default_color_blend_attachments();
     let color_blend_state = pipeline::get_default_color_blend_state(&color_blend_attachments);

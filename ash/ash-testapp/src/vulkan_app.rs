@@ -20,8 +20,9 @@ pub struct VulkanApp {
 
     transform_desc_set_layout: vk::DescriptorSetLayout,
     texture_desc_set_layout: vk::DescriptorSetLayout,
+    color_buffer: util::image::Image,
+    depth_buffer: util::image::Image,
     framebuffers: Vec<vk::Framebuffer>,
-    depthbuffer: util::image::Image,
 
     texture: util::image::Image,
     sampler: vk::Sampler,
@@ -68,17 +69,34 @@ impl VulkanApp {
             crate::constants::WINDOW_HEIGHT,
         );
         //
-        let render_pass = crate::pipeline::create_render_pass(&device, swapchain.format);
-        let mut depthbuffer = util::image::Image::depth_target(
+        let msaa_samples = vk::SampleCountFlags::TYPE_8;
+        let render_pass = crate::pipeline::create_render_pass(&device, swapchain.format, msaa_samples);
+        let mut color_buffer = util::image::Image::color_target(
+            &device,
+            swapchain.format,
+            swapchain.extent.width,
+            swapchain.extent.height,
+            msaa_samples,
+            &memory_properties,
+        );
+        let color_view = color_buffer.get_or_create_image_view(swapchain.format, vk::ImageAspectFlags::COLOR);
+        let mut depth_buffer = util::image::Image::depth_target(
             &device,
             crate::constants::DEPTH_FORMAT,
             swapchain.extent.width,
             swapchain.extent.height,
+            msaa_samples,
             &memory_properties,
         );
-        let depth_view = depthbuffer.get_or_create_image_view(crate::constants::DEPTH_FORMAT, vk::ImageAspectFlags::DEPTH);
-        let framebuffers =
-            crate::pipeline::create_framebuffers(&device, render_pass, &swapchain.image_views, &depth_view, &swapchain.extent);
+        let depth_view = depth_buffer.get_or_create_image_view(crate::constants::DEPTH_FORMAT, vk::ImageAspectFlags::DEPTH);
+        let framebuffers = crate::pipeline::create_framebuffers(
+            &device,
+            render_pass,
+            &swapchain.image_views,
+            &color_view,
+            &depth_view,
+            &swapchain.extent,
+        );
         //
         let command_pool = util::command::create_command_pool(&device, queue_families.graphics_family.unwrap());
         let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics_family.unwrap(), 0) };
@@ -117,7 +135,7 @@ impl VulkanApp {
         //
         let desc_set_layouts = vec![transform_desc_set_layout, texture_desc_set_layout];
         let (pipeline_layout, graphics_pipeline) =
-            crate::pipeline::create_graphics_pipeline(&device, render_pass, swapchain.extent, &desc_set_layouts);
+            crate::pipeline::create_graphics_pipeline(&device, render_pass, swapchain.extent, &desc_set_layouts, msaa_samples);
         //
         let command_buffers = create_command_buffers(
             &device,
@@ -174,8 +192,9 @@ impl VulkanApp {
             uniform_buffers,
             descriptor_pool,
             _transform_desc_sets: transform_desc_sets,
+            color_buffer,
+            depth_buffer,
             framebuffers,
-            depthbuffer,
             pipeline_layout,
             graphics_pipeline,
             command_pool,
@@ -231,10 +250,11 @@ impl Drop for VulkanApp {
             self.presenter.destroy(&self.device);
 
             self.device.destroy_command_pool(self.command_pool, None);
-            self.depthbuffer.destroy(&self.device);
             for &framebuffer in self.framebuffers.iter() {
                 self.device.destroy_framebuffer(framebuffer, None);
             }
+            self.depth_buffer.destroy(&self.device);
+            self.color_buffer.destroy(&self.device);
             self.device.destroy_pipeline(self.graphics_pipeline, None);
             self.device.destroy_pipeline_layout(self.pipeline_layout, None);
             self.device.destroy_descriptor_pool(self.descriptor_pool, None);

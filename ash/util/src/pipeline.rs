@@ -73,12 +73,12 @@ pub fn get_default_rasterization_state() -> vk::PipelineRasterizationStateCreate
     }
 }
 
-pub fn get_default_multisample_state() -> vk::PipelineMultisampleStateCreateInfo {
+pub fn get_default_multisample_state(msaa_samples: vk::SampleCountFlags) -> vk::PipelineMultisampleStateCreateInfo {
     vk::PipelineMultisampleStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         flags: vk::PipelineMultisampleStateCreateFlags::empty(),
         p_next: std::ptr::null(),
-        rasterization_samples: vk::SampleCountFlags::TYPE_1,
+        rasterization_samples: msaa_samples,
         sample_shading_enable: vk::FALSE,
         min_sample_shading: 0.0,
         p_sample_mask: std::ptr::null(),

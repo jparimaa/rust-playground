@@ -32,7 +32,11 @@ impl Image {
             flags: vk::ImageCreateFlags::empty(),
             image_type: vk::ImageType::TYPE_2D,
             format: vk::Format::R8G8B8A8_UNORM,
-            extent: vk::Extent3D { width: image_file.width, height: image_file.height, depth: 1 },
+            extent: vk::Extent3D {
+                width: image_file.width,
+                height: image_file.height,
+                depth: 1,
+            },
             mip_levels,
             array_layers: 1,
             samples: vk::SampleCountFlags::TYPE_1,
@@ -121,11 +125,51 @@ impl Image {
         }
     }
 
+    pub fn color_target(
+        device: &ash::Device,
+        format: vk::Format,
+        width: u32,
+        height: u32,
+        samples: vk::SampleCountFlags,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    ) -> Image {
+        let mip_levels = 1;
+        let image_create_info = vk::ImageCreateInfo {
+            s_type: vk::StructureType::IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::ImageCreateFlags::empty(),
+            image_type: vk::ImageType::TYPE_2D,
+            format,
+            extent: vk::Extent3D { width, height, depth: 1 },
+            mip_levels: 1,
+            array_layers: 1,
+            samples,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: vk::ImageLayout::UNDEFINED,
+        };
+        let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
+
+        let memory = allocate_image(device, image, memory_properties);
+
+        Image {
+            image,
+            memory,
+            device: device.clone(),
+            image_views: std::collections::HashMap::new(),
+            mip_levels,
+        }
+    }
+
     pub fn depth_target(
         device: &ash::Device,
         format: vk::Format,
         width: u32,
         height: u32,
+        samples: vk::SampleCountFlags,
         memory_properties: &vk::PhysicalDeviceMemoryProperties,
     ) -> Image {
         let mip_levels = 1;
@@ -138,7 +182,7 @@ impl Image {
             extent: vk::Extent3D { width, height, depth: 1 },
             mip_levels,
             array_layers: 1,
-            samples: vk::SampleCountFlags::TYPE_1,
+            samples,
             tiling: vk::ImageTiling::OPTIMAL,
             usage: vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             sharing_mode: vk::SharingMode::EXCLUSIVE,
@@ -297,7 +341,11 @@ fn generate_mipmaps(
             },
             src_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D { x: mip_width, y: mip_height, z: 1 },
+                vk::Offset3D {
+                    x: mip_width,
+                    y: mip_height,
+                    z: 1,
+                },
             ],
             dst_subresource: vk::ImageSubresourceLayers {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
