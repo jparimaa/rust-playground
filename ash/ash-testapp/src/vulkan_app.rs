@@ -109,13 +109,13 @@ impl VulkanApp {
             command_pool,
             graphics_queue,
             &memory_properties,
-            &std::path::Path::new("C:/Projects/rust-playground/assets/checker.png"),
+            &std::path::Path::new("assets/checker.png"),
             true,
         );
         let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
         let sampler = crate::sampler::create_sampler(&device);
         //
-        let model = util::obj_model::ObjModel::new(&std::path::Path::new("C:/Projects/rust-playground/assets/room.obj"));
+        let model = util::gltf_model::GltfModel::new(&std::path::Path::new("assets/BoxTextured.gltf"));
         //
         use crate::buffer;
         let vertex_buffer = buffer::create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue, &model.meshes[0]);
@@ -159,17 +159,8 @@ impl VulkanApp {
 
         let matrices = crate::data::WVPMatrices {
             world: cgmath::Matrix4::<f32>::identity(),
-            view: cgmath::Matrix4::look_at(
-                cgmath::Point3::new(0.0, 0.0, 2.0),  // eye
-                cgmath::Point3::new(0.0, 0.0, 0.0),  // point
-                cgmath::Vector3::new(0.0, 1.0, 0.0), // up
-            ),
-            projection: cgmath::perspective(
-                cgmath::Deg(45.0),
-                swapchain.extent.width as f32 / swapchain.extent.height as f32,
-                0.1,
-                100.0,
-            ),
+            view: cgmath::Matrix4::<f32>::identity(),
+            projection: cgmath::Matrix4::<f32>::identity(),
         };
 
         let camera = util::camera::Camera::new(0.3, 1.0, (crate::constants::WINDOW_WIDTH / crate::constants::WINDOW_HEIGHT) as f32);
@@ -219,7 +210,7 @@ impl VulkanApp {
         let image_index = self.presenter.acquire_image(&self.swapchain);
 
         self.ubo_data.world =
-            cgmath::Matrix4::from_axis_angle(cgmath::Vector3::new(0.0, 0.0, 1.0), cgmath::Deg(1.0) * time_delta) * self.ubo_data.world;
+            cgmath::Matrix4::from_axis_angle(cgmath::Vector3::new(-0.3, 1.5, 0.5), cgmath::Deg(10.0) * time_delta) * self.ubo_data.world;
         self.ubo_data.view = self.camera.get_view_matrix();
         self.ubo_data.projection = self.camera.get_projection_matrix();
         // Todo: avoid copy

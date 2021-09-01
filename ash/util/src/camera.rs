@@ -135,7 +135,6 @@ impl Camera {
 
     fn get_rotation_matrix(&self) -> cgmath::Matrix4<f32> {
         use cgmath::{Deg, Matrix4, Rad};
-
         let pitch = Matrix4::from_angle_x(Rad::from(Deg(self.rot_y)));
         let yaw = Matrix4::from_angle_y(Rad::from(Deg(self.rot_x)));
         yaw * pitch

@@ -25,7 +25,7 @@ pub fn create_vertex_buffer(
     physical_device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
-    mesh: &util::obj_model::Mesh,
+    mesh: &util::gltf_model::Mesh,
 ) -> Buffer {
     let buffer_size = (std::mem::size_of_val(&mesh.vertices[0]) *  mesh.vertices.len()) as vk::DeviceSize;
 
@@ -40,7 +40,7 @@ pub fn create_vertex_buffer(
     unsafe {
         let data_ptr = device
             .map_memory(staging_buffer_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-            .expect("Failed to map memory") as *mut util::obj_model::Vertex;
+            .expect("Failed to map memory") as *mut util::gltf_model::Vertex;
 
         data_ptr.copy_from_nonoverlapping(mesh.vertices.as_ptr(), mesh.vertices.len());
 
@@ -70,7 +70,7 @@ pub fn create_index_buffer(
     physical_device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
-    mesh: &util::obj_model::Mesh,
+    mesh: &util::gltf_model::Mesh,
 ) -> Buffer {
     let buffer_size = (std::mem::size_of_val(&mesh.indices[0]) * mesh.indices.len()) as vk::DeviceSize;
 
