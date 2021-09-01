@@ -12,3 +12,4 @@ pub mod image;
 pub mod command;
 pub mod queue_family;
 pub mod obj_model;
+pub mod camera;

@@ -1,10 +1,10 @@
+mod buffer;
 mod constants;
 mod data;
 mod desc_set;
 mod pipeline;
-mod vulkan_app;
-mod buffer;
 mod sampler;
+mod vulkan_app;
 
 fn main() {
     let event_loop = winit::event_loop::EventLoop::new();
@@ -34,9 +34,13 @@ fn main_loop(event_loop: winit::event_loop::EventLoop<()>, window: winit::window
                     virtual_keycode, state, ..
                 } => match (virtual_keycode, state) {
                     (Some(VirtualKeyCode::Escape), ElementState::Released) => *control_flow = ControlFlow::Exit,
+                    (Some(key), state) => vulkan_app.handle_key_input(key, state),
                     _ => {}
                 },
             },
+            WindowEvent::CursorMoved { position, .. } => {
+                vulkan_app.handle_mouse_movement(position.x, position.y);
+            }
             _ => {}
         },
         Event::MainEventsCleared => {

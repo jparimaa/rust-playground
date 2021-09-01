@@ -44,6 +44,8 @@ pub struct VulkanApp {
     presenter: util::presenter::Presenter,
     time_instant: std::time::Instant,
     total_duration: std::time::Duration,
+
+    camera: util::camera::Camera,
 }
 
 impl VulkanApp {
@@ -170,6 +172,8 @@ impl VulkanApp {
             ),
         };
 
+        let camera = util::camera::Camera::new(0.3, 1.0, (crate::constants::WINDOW_WIDTH / crate::constants::WINDOW_HEIGHT) as f32);
+
         VulkanApp {
             _entry: entry,
             instance,
@@ -202,6 +206,7 @@ impl VulkanApp {
             presenter,
             time_instant: std::time::Instant::now(),
             total_duration: std::time::Duration::new(0, 0),
+            camera,
         }
     }
 
@@ -209,10 +214,14 @@ impl VulkanApp {
         let time_delta = (self.time_instant.elapsed().as_millis() as f32 - self.total_duration.as_millis() as f32) / 1000.0;
         self.total_duration = self.time_instant.elapsed();
 
+        self.camera.update(time_delta);
+
         let image_index = self.presenter.acquire_image(&self.swapchain);
 
         self.ubo_data.world =
-            cgmath::Matrix4::from_axis_angle(cgmath::Vector3::new(0.0, 0.0, 1.0), cgmath::Deg(90.0) * time_delta) * self.ubo_data.world;
+            cgmath::Matrix4::from_axis_angle(cgmath::Vector3::new(0.0, 0.0, 1.0), cgmath::Deg(1.0) * time_delta) * self.ubo_data.world;
+        self.ubo_data.view = self.camera.get_view_matrix();
+        self.ubo_data.projection = self.camera.get_projection_matrix();
         // Todo: avoid copy
         let ubos = [self.ubo_data.clone()];
         let buffer_size = (std::mem::size_of::<crate::data::WVPMatrices>() * ubos.len()) as u64;
@@ -240,6 +249,14 @@ impl VulkanApp {
             self.present_queue,
             image_index,
         );
+    }
+
+    pub fn handle_key_input(&mut self, key: winit::event::VirtualKeyCode, state: winit::event::ElementState) {
+        self.camera.handle_key_input(key, state);
+    }
+
+    pub fn handle_mouse_movement(&mut self, x: i32, y: i32) {
+        self.camera.handle_mouse_movement(x, y);
     }
 }
 
