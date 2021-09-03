@@ -109,13 +109,13 @@ impl VulkanApp {
             command_pool,
             graphics_queue,
             &memory_properties,
-            &std::path::Path::new("assets/checker.png"),
+            &std::path::Path::new("C:/Projects/rust-playground/assets/checker.png"),
             true,
         );
         let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
         let sampler = crate::sampler::create_sampler(&device);
         //
-        let model = util::gltf_model::GltfModel::new(&std::path::Path::new("assets/BoxTextured.gltf"));
+        let model = util::gltf_model::GltfModel::new(&std::path::Path::new("C:/Projects/rust-playground/assets/DamagedHelmet.gltf"));
         //
         use crate::buffer;
         let vertex_buffer = buffer::create_vertex_buffer(&device, &memory_properties, command_pool, graphics_queue, &model.meshes[0]);
