@@ -50,50 +50,19 @@ impl Image {
         let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
 
         let memory = allocate_image(device, image, memory_properties);
-
-        let (staging_buffer, staging_buffer_memory) = crate::memory::create_buffer(
+        set_image_data(
             device,
-            image_file.size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            command_pool,
+            submit_queue,
             memory_properties,
-        );
-
-        unsafe {
-            let data_ptr = device
-                .map_memory(staging_buffer_memory, 0, image_file.size, vk::MemoryMapFlags::empty())
-                .expect("Failed to map memory") as *mut u8;
-            data_ptr.copy_from_nonoverlapping(image_file.data.as_ptr(), image_file.data.len());
-            device.unmap_memory(staging_buffer_memory);
-        }
-
-        crate::memory::transition_image_layout(
-            device,
-            command_pool,
-            submit_queue,
+            &image_file.data,
             image,
-            vk::Format::R8G8B8A8_UNORM,
-            vk::ImageLayout::UNDEFINED,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             mip_levels,
-        );
-
-        crate::memory::copy_buffer_to_image(
-            device,
-            command_pool,
-            submit_queue,
-            staging_buffer,
-            image,
             image_file.width,
             image_file.height,
         );
 
-        unsafe {
-            device.destroy_buffer(staging_buffer, None);
-            device.free_memory(staging_buffer_memory, None);
-        }
-
-        if create_mips {
+        if mip_levels > 1 {
             generate_mipmaps(
                 device,
                 command_pool,
@@ -154,7 +123,6 @@ impl Image {
         let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
 
         let memory = allocate_image(device, image, memory_properties);
-
         Image {
             image,
             memory,
@@ -193,6 +161,62 @@ impl Image {
         let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
 
         let memory = allocate_image(device, image, memory_properties);
+
+        Image {
+            image,
+            memory,
+            device: device.clone(),
+            image_views: std::collections::HashMap::new(),
+            mip_levels,
+        }
+    }
+
+    pub fn from_texture(
+        device: &ash::Device,
+        command_pool: vk::CommandPool,
+        submit_queue: vk::Queue,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
+        texture: &crate::gltf_model::Texture,
+    ) -> Image {
+        let mip_levels = ((std::cmp::max(texture.width, texture.height) as f32).log2().floor() as u32) + 1;
+
+        let image_create_info = vk::ImageCreateInfo {
+            s_type: vk::StructureType::IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: vk::ImageCreateFlags::empty(),
+            image_type: vk::ImageType::TYPE_2D,
+            format: vk::Format::R8G8B8A8_UNORM,
+            extent: vk::Extent3D {
+                width: texture.width,
+                height: texture.height,
+                depth: 1,
+            },
+            mip_levels,
+            array_layers: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_SRC,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: vk::ImageLayout::UNDEFINED,
+        };
+        let image = unsafe { device.create_image(&image_create_info, None).expect("Failed to create image") };
+
+        let memory = allocate_image(device, image, memory_properties);
+        set_image_data(
+            device,
+            command_pool,
+            submit_queue,
+            memory_properties,
+            &texture.data,
+            image,
+            mip_levels,
+            texture.width,
+            texture.height,
+        );
+
+        generate_mipmaps(device, command_pool, submit_queue, image, texture.width, texture.height, mip_levels);
 
         Image {
             image,
@@ -278,6 +302,51 @@ fn allocate_image(device: &ash::Device, image: vk::Image, memory_properties: &vk
     }
 
     memory
+}
+
+fn set_image_data(
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    submit_queue: vk::Queue,
+    memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    image_data: &Vec<u8>,
+    image: vk::Image,
+    mip_levels: u32,
+    width: u32,
+    height: u32,
+) {
+    let (staging_buffer, staging_buffer_memory) = crate::memory::create_buffer(
+        device,
+        image_data.len() as u64,
+        vk::BufferUsageFlags::TRANSFER_SRC,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        memory_properties,
+    );
+    unsafe {
+        let data_ptr = device
+            .map_memory(staging_buffer_memory, 0, image_data.len() as u64, vk::MemoryMapFlags::empty())
+            .expect("Failed to map memory") as *mut u8;
+        data_ptr.copy_from_nonoverlapping(image_data.as_ptr(), image_data.len());
+        device.unmap_memory(staging_buffer_memory);
+    }
+
+    crate::memory::transition_image_layout(
+        device,
+        command_pool,
+        submit_queue,
+        image,
+        vk::Format::R8G8B8A8_UNORM,
+        vk::ImageLayout::UNDEFINED,
+        vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        mip_levels,
+    );
+
+    crate::memory::copy_buffer_to_image(device, command_pool, submit_queue, staging_buffer, image, width, height);
+
+    unsafe {
+        device.destroy_buffer(staging_buffer, None);
+        device.free_memory(staging_buffer_memory, None);
+    }
 }
 
 fn generate_mipmaps(

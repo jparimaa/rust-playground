@@ -51,7 +51,7 @@ impl Camera {
             move_backward: false,
             move_left: false,
             move_right: false,
-            pos: cgmath::Vector3 { x: 0.0, y: 0.0, z: 2.0 },
+            pos: cgmath::Vector3 { x: 0.0, y: 0.0, z: 5.0 },
             fovy_deg: 45.0,
             aspect,
             near: 0.1,
