@@ -19,6 +19,8 @@ pub struct Texture {
 
 pub struct Material {
     pub base_texture: Texture,
+    pub emissive_texture: Texture,
+    pub ao_texture: Texture,
 }
 
 pub struct GltfModel {
@@ -42,24 +44,12 @@ impl GltfModel {
         let mut materials = vec![];
         for material in gltf.materials() {
             let base_texture_index = material.pbr_metallic_roughness().base_color_texture().unwrap().texture().index();
-            let image = &images[base_texture_index];
-            let mut data = vec![];
-            if image.format == gltf::image::Format::R8G8B8 {
-                for i in (0..image.pixels.len()).step_by(3) {
-                    data.push(image.pixels[i + 0]);
-                    data.push(image.pixels[i + 1]);
-                    data.push(image.pixels[i + 2]);
-                    data.push(255);
-                }
-            } else {
-                data = image.pixels.clone();
-            }
+            let emissive_texture_index = material.emissive_texture().unwrap().texture().index();
+            let ao_texture_index = material.occlusion_texture().unwrap().texture().index();
             materials.push(Material {
-                base_texture: Texture {
-                    data,
-                    width: image.width,
-                    height: image.height,
-                },
+                base_texture: load_texture( &images[base_texture_index]),
+                emissive_texture: load_texture( &images[emissive_texture_index]),
+                ao_texture: load_texture( &images[ao_texture_index]),
             });
         }
 
@@ -77,14 +67,26 @@ fn load_primitive(primitive: &gltf::Primitive, buffers: &[gltf::buffer::Data]) -
     let mut vertices: Vec<Vertex> = Vec::new();
 
     for (i, _) in positions.iter().enumerate() {
-        vertices.push(Vertex {
-            position: positions[i],
-            uv: uvs[i],
-            normal: normals[i],
-        });
+        vertices.push(Vertex { position: positions[i], uv: uvs[i], normal: normals[i] });
     }
 
     let indices: Vec<u32> = reader.read_indices().unwrap().into_u32().collect();
 
     (vertices, indices)
+}
+
+fn load_texture(image: &gltf::image::Data) -> Texture {
+    let mut data = vec![];
+    if image.format == gltf::image::Format::R8G8B8 {
+        for i in (0..image.pixels.len()).step_by(3) {
+            data.push(image.pixels[i + 0]);
+            data.push(image.pixels[i + 1]);
+            data.push(image.pixels[i + 2]);
+            data.push(255);
+        }
+    } else {
+        data = image.pixels.clone();
+    }
+
+    Texture { data, width: image.width, height: image.height }
 }

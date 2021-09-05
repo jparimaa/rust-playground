@@ -9,7 +9,7 @@ pub fn create_descriptor_pool(device: &ash::Device, num_max_sets: usize) -> vk::
         },
         vk::DescriptorPoolSize {
             ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: 1,
+            descriptor_count: 3,
         },
     ];
 
@@ -54,13 +54,29 @@ pub fn create_transform_desc_set_layout(device: &ash::Device) -> vk::DescriptorS
 }
 
 pub fn create_texture_desc_set_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let bindings = [vk::DescriptorSetLayoutBinding {
-        binding: 0,
-        descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-        descriptor_count: 1,
-        stage_flags: vk::ShaderStageFlags::FRAGMENT,
-        p_immutable_samplers: std::ptr::null(),
-    }];
+    let bindings = [
+        vk::DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::FRAGMENT,
+            p_immutable_samplers: std::ptr::null(),
+        },
+        vk::DescriptorSetLayoutBinding {
+            binding: 1,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::FRAGMENT,
+            p_immutable_samplers: std::ptr::null(),
+        },
+        vk::DescriptorSetLayoutBinding {
+            binding: 2,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::FRAGMENT,
+            p_immutable_samplers: std::ptr::null(),
+        },
+    ];
 
     let desc_set_layout_create_info = vk::DescriptorSetLayoutCreateInfo {
         s_type: vk::StructureType::DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -133,17 +149,17 @@ pub fn create_transform_desc_sets(
 
 pub fn create_texture_desc_set(
     device: &ash::Device,
-    descriptor_pool: vk::DescriptorPool,
-    descriptor_set_layout: vk::DescriptorSetLayout,
+    desc_pool: vk::DescriptorPool,
+    desc_set_layout: vk::DescriptorSetLayout,
     sampler: vk::Sampler,
-    texture: &mut util::image::Image,
+    textures: &mut std::vec::Vec<&mut util::image::Image>,
 ) -> vk::DescriptorSet {
-    let layouts: Vec<vk::DescriptorSetLayout> = vec![descriptor_set_layout];
+    let layouts: Vec<vk::DescriptorSetLayout> = vec![desc_set_layout];
 
     let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
         s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
         p_next: std::ptr::null(),
-        descriptor_pool,
+        descriptor_pool: desc_pool,
         descriptor_set_count: layouts.len() as u32,
         p_set_layouts: layouts.as_ptr(),
     };
@@ -154,27 +170,33 @@ pub fn create_texture_desc_set(
             .expect("Failed to allocate descriptor sets!")[0]
     };
 
-    let descriptor_image_info = [vk::DescriptorImageInfo {
-        sampler: sampler,
-        image_view: texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR),
-        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    }];
+    let mut desc_image_infos = vec![];
+    for t in textures {
+        desc_image_infos.push(vk::DescriptorImageInfo {
+            sampler: sampler,
+            image_view: t.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR),
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        });
+    }
 
-    let descriptor_write_sets = [vk::WriteDescriptorSet {
-        s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-        p_next: std::ptr::null(),
-        dst_set: desc_set,
-        dst_binding: 0,
-        dst_array_element: 0,
-        descriptor_count: 1,
-        descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-        p_buffer_info: std::ptr::null(),
-        p_image_info: descriptor_image_info.as_ptr(),
-        p_texel_buffer_view: std::ptr::null(),
-    }];
+    let mut desc_write_sets = vec![];
+    for (i, info) in desc_image_infos.iter().enumerate() {
+        desc_write_sets.push(vk::WriteDescriptorSet {
+            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: desc_set,
+            dst_binding: i as u32,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            p_buffer_info: std::ptr::null(),
+            p_image_info: info,
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
 
     unsafe {
-        device.update_descriptor_sets(&descriptor_write_sets, &[]);
+        device.update_descriptor_sets(&desc_write_sets, &[]);
     }
 
     desc_set

@@ -24,7 +24,9 @@ pub struct VulkanApp {
     depth_buffer: util::image::Image,
     framebuffers: Vec<vk::Framebuffer>,
 
-    texture: util::image::Image,
+    base_texture: util::image::Image,
+    ao_texture: util::image::Image,
+    emissive_texture: util::image::Image,
     sampler: vk::Sampler,
 
     vertex_buffer: crate::buffer::Buffer,
@@ -105,14 +107,28 @@ impl VulkanApp {
         let present_queue = unsafe { device.get_device_queue(queue_families.present_family.unwrap(), 0) };
         //
         let model = util::gltf_model::GltfModel::new(&std::path::Path::new("C:/Projects/rust-playground/assets/DamagedHelmet.gltf"));
-        let mut texture = util::image::Image::from_texture(
+        let mut base_texture = util::image::Image::from_texture(
             &device,
             command_pool,
             graphics_queue,
             &memory_properties,
             &model.materials[0].base_texture,
         );
-        let _image_view = texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
+        let mut ao_texture = util::image::Image::from_texture(
+            &device,
+            command_pool,
+            graphics_queue,
+            &memory_properties,
+            &model.materials[0].ao_texture,
+        );
+        let mut emissive_texture = util::image::Image::from_texture(
+            &device,
+            command_pool,
+            graphics_queue,
+            &memory_properties,
+            &model.materials[0].emissive_texture,
+        );
+        let _image_view = base_texture.get_or_create_image_view(vk::Format::R8G8B8A8_UNORM, vk::ImageAspectFlags::COLOR);
         let sampler = crate::sampler::create_sampler(&device);
         //
         use crate::buffer;
@@ -131,7 +147,13 @@ impl VulkanApp {
             swapchain.length,
             &uniform_buffers,
         );
-        let texture_desc_set = desc_set::create_texture_desc_set(&device, descriptor_pool, texture_desc_set_layout, sampler, &mut texture);
+        let texture_desc_set = desc_set::create_texture_desc_set(
+            &device,
+            descriptor_pool,
+            texture_desc_set_layout,
+            sampler,
+            &mut vec![&mut base_texture, &mut ao_texture, &mut emissive_texture],
+        );
         //
         let desc_set_layouts = vec![transform_desc_set_layout, texture_desc_set_layout];
         let (pipeline_layout, graphics_pipeline) =
@@ -177,7 +199,9 @@ impl VulkanApp {
             render_pass,
             transform_desc_set_layout,
             texture_desc_set_layout,
-            texture,
+            base_texture,
+            ao_texture,
+            emissive_texture,
             sampler,
             vertex_buffer,
             index_buffer,
@@ -270,7 +294,9 @@ impl Drop for VulkanApp {
             self.index_buffer.destroy();
             self.vertex_buffer.destroy();
             self.device.destroy_sampler(self.sampler, None);
-            self.texture.destroy(&self.device);
+            self.ao_texture.destroy(&self.device);
+            self.emissive_texture.destroy(&self.device);
+            self.base_texture.destroy(&self.device);
             self.device.destroy_descriptor_set_layout(self.texture_desc_set_layout, None);
             self.device.destroy_descriptor_set_layout(self.transform_desc_set_layout, None);
             self.device.destroy_render_pass(self.render_pass, None);
@@ -320,11 +346,7 @@ fn create_command_buffers(
         };
 
         let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.2, 1.0],
-                },
-            },
+            vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.2, 1.0] } },
             vk::ClearValue {
                 depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
             },
