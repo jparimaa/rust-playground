@@ -1,6 +1,6 @@
 # rust-playground
 
-Testing rust with different projects
+Testing and learning rust with different projects
 
 ## ash
 
